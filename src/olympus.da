@@ -1,5 +1,19 @@
 from Crypto.PublicKey import RSA
 from Crypto import Random
 
+import message_type
+
 class Olympus(process):
-        pass
+    
+    def setup():
+        self.public_key = None
+        self.replicas_public_keys = {}
+
+    def run():
+        await(False)
+
+    def receive(msg=(message_type.CLIENT_INIT, ), from_=client):
+        send(msg=(message_type.OLYMPUS_CLIENT_INIT, init_dict), to=client)
+
+
+        
