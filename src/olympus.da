@@ -1,19 +1,62 @@
 from Crypto.PublicKey import RSA
 from Crypto import Random
 
+import uuid
+
+from replica import Replica
 import message_type
 
 class Olympus(process):
     
     def setup():
         self.public_key = None
-        self.replicas_public_keys = {}
+        self.replicas_key_pairs = {}
+        self.replicas_data = {}    #TODO: Change variable name??
+
+    def generate_replica_key_pair(replica_id):
+        random_generator = Random.new().read
+        key = RSA.generate(1024, random_generator)
+        public_key = key.publickey().exportKey()
+        self.replicas_key_pairs[replica_id] = {'key' : key, 'public_key' : public_key}
+        return (key, {replica_id : public_key})
+    '''
+    def init_replica(replica_id):
+        init_message_payload = {
+            'isHead' : False,
+            'isTail' : False, 
+            'unique_id' : replica_id,
+            'prev_replica' : None,
+            'next_replica' : None,
+            'key' : None,
+            'keychain' : None
+        }
+
+        if self.replicas_data['count'] == 0: #first replica
+            init_message_payload['isHead'] = True
+            init_message_payload['isTail'] = True
+    '''
+    def init_replicas(number):
+        replicas = list(new(Replica, num= number))
+        for i, replica in enumerate(replicas):
+            replica_id = uuid.uuid4().hex
+            isHead = True if i==0 else False
+            isTail = True if i==(len(replicas)-1) else False
+
+            prev_r = None if isHead else replicas[i-1]
+            next_r = None if isTail else replicas[i+1]
+
+            key, keychain = generate_replica_key_pair(replica_id)
+
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain))
+            
+        start(replicas)
+            
 
     def run():
+        init_replicas(3)
         await(False)
 
-    def receive(msg=(message_type.CLIENT_INIT, ), from_=client):
-        send(msg=(message_type.OLYMPUS_CLIENT_INIT, init_dict), to=client)
+def main():
+    olympus = new(Olympus, args=())
+    start(olympus)
 
-
-        
