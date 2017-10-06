@@ -1,0 +1,45 @@
+import uuid
+
+REPLICA_PENDING = 'PENDING'
+REPLICA_ACTIVE = 'ACTIVE'
+REPLICA_IMMUTABLE = 'IMMUTABLE'
+
+class Replica(process):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica):
+        self.uuid = unique_id
+        self.running_state = {}
+        self.history = []
+        self.mode = REPLICA_ACTIVE
+        self.prev_replica = prev_replica
+        self.next_replica = next_replica
+        self.public_keys = {}
+        self.private_key = None
+        self.result_shuttle_cache = {}
+        self.checkpoint_proof_cache = {}
+        self.isHead = False
+        self.isTail = False
+        self.current_slot = 0
+        self.config_number = 1
+        self.retransmission = []
+        self.wait_for_result_proof = {}
+        print(self)
+
+    def run():
+        await(False)
+
+def main():
+    config(clock='Lamport')
+
+    replica1 = new(Replica, num=1)
+    replica2 = new(Replica, num=1)
+
+
+    unique_id_1 = uuid.uuid4()
+    setup(replica1, (True, False, unique_id_1.hex, None, replica2))
+
+    unique_id_2 = uuid.uuid4()
+    setup(replica2, (True, True, unique_id_2.hex, replica1, None))
+
+
+    start(replica1)
+    start(replica2)
