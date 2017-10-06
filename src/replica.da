@@ -16,7 +16,7 @@ SHUTTLE_SLOT = 'slot'
 SHUTTLE_OPERATION = 'operation'
 SHUTTLE_CHECKSUM = 'checksum'
 SHUTTLE_CLIENT_ID = 'client_id'
-
+SHUTTLE = 'shuttle'
 
 class Replica(process):
     def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict):
@@ -38,7 +38,7 @@ class Replica(process):
         self.current_slot = 0
         self.config_number = 1
         self.retransmission = []
-        self.wait_for_result_proof = {}
+        self.waiting_for_result_proof = {}
         self.passport = key
         _build_key_chain(keychain)
 
@@ -109,6 +109,13 @@ class Replica(process):
     def add_to_order_proof(signed_order_statement):
         self.order_proof.append(signed_order_statement)
 
+    def generate_history_statement(slot, operation, order_proof):  # TODO
+        history_statement = json.dumps((slot, operation, order_proof)).encode('utf-8')
+        return history_statement
+
+    def add_to_history(history_statement):
+        self.history.append(history_statement)
+
     def handle_operation():
         update_current_slot_number()
         _put(('movie', 'Bangalore Days'))
@@ -123,12 +130,34 @@ class Replica(process):
         signed_order_statement = sign_order_statement(order_statement)
         add_to_order_proof(signed_order_statement)
 
+        history_statement = generate_history_statement(slot, operation, self.order_proof)  # TODO: add replica_id and config number
+        add_to_history(history_statement)
+
+
+        checksum = SHA256.new(json.dumps((1,1)).encode('utf-8')).hexdigest()  # TODO: client request checksum
+        waiting_for_result_proof[checksum] = True
+
         shuttle_message = generate_shuttle_message(self.result_proof, self.order_proof, slot, operation)
+        print('sending shuttle message to ', next_replica)
         send(('shuttle', shuttle_message), to=next_replica)
+        await(False) #  TODO: This needs to wait till it receives a complete result proof from its next replica
 
 
-    def receive(msg=('shuttle', payload)):
-        print('This is the shit ', payload)
+    def check_order_proof_validity(order_proof_list):
+        print('Yayy, checking order proof validity ', order_proof_list)
+        pass
+
+    def receive(msg=(SHUTTLE, payload), from_=prev_replica):
+        shuttle_msg = payload
+        print(shuttle_msg)
+        if self.current_slot+1 == shuttle_msg[SHUTTLE_SLOT]:  # new slot
+            order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
+            order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
+            if order_proof_is_valid:
+                pass
+            else:
+                self.mode = REPLICA_IMMUTABLE
+
 
     def generate_shuttle_message(result_proof, order_proof, slot, operation):
         shuttle_msg = {}
