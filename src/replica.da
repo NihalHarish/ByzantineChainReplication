@@ -1,4 +1,4 @@
-import uuid
+import uuid, json
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto import Random
@@ -23,6 +23,9 @@ class Replica(process):
         self.uuid = unique_id
         self.running_state = {}
         self.history = []
+        self.result_proof = []
+        self.order_proof = []
+
         self.mode = REPLICA_ACTIVE
         self.prev_replica = prev_replica
         self.next_replica = next_replica
@@ -71,26 +74,69 @@ class Replica(process):
             self.running_state[key] = early_value[start: end]
 
     def run():
-        test_dict_object()
-        #if self.isHead:
-        #    handle_operation()
+        #test_dict_object()
+        if self.isHead:
+            handle_operation()
         await(False)
 
     def update_current_slot_number():
         self.current_slot += 1
 
     def compute_running_state_hash():
-        running_state_string = str(self.running_state)
-        return SHA256(running_state_string)
+        running_state_json = json.dumps(self.running_state).encode('utf-8')
+        return SHA256.new(running_state_json).hexdigest()
+
+    def generate_result_statement(result_hash):
+        statement = json.dumps(('result', result_hash)).encode('utf-8')
+        return statement
+
+    def sign_result_statement(result_statement):
+        signature = self.passport.sign(result_statement, '')
+        return signature
+
+    def add_to_result_proof(signed_result_proof):
+        self.result_proof.append(signed_result_proof)
+
+
+    def generate_order_statement(slot, operation):
+        order_statement = json.dumps(('order', slot, operation)).encode('utf-8')
+        return order_statement
+
+    def sign_order_statement(order_statement):
+        signature = self.passport.sign(order_statement, '')
+        return signature
+
+    def add_to_order_proof(signed_order_statement):
+        self.order_proof.append(signed_order_statement)
 
     def handle_operation():
-        update_current__slot_number()
-        _put(('movie', 'star wars'))
+        update_current_slot_number()
+        _put(('movie', 'Bangalore Days'))
         result_hash = compute_running_state_hash()
+        result_statement = generate_result_statement(result_hash)
+        signed_result_statement = sign_result_statement(result_statement)
+        add_to_result_proof(signed_result_statement)
 
-    def generate_shuttle_message(result_proof, order_proof, operation):
+        slot = self.current_slot
+        operation = 'put(\'movie\':\'Bangalore Days\')'
+        order_statement = generate_order_statement(slot, operation)
+        signed_order_statement = sign_order_statement(order_statement)
+        add_to_order_proof(signed_order_statement)
+
+        shuttle_message = generate_shuttle_message(self.result_proof, self.order_proof, slot, operation)
+        send(('shuttle', shuttle_message), to=next_replica)
+
+
+    def receive(msg=('shuttle', payload)):
+        print('This is the shit ', payload)
+
+    def generate_shuttle_message(result_proof, order_proof, slot, operation):
         shuttle_msg = {}
-        shuttle_msg['result_proof'] = []
+        shuttle_msg[SHUTTLE_RESULT_PROOF] = result_proof
+        shuttle_msg[SHUTTLE_ORDER_PROOF] = order_proof
+        shuttle_msg[SHUTTLE_SLOT] = slot
+        shuttle_msg[SHUTTLE_OPERATION] = operation
+        return shuttle_msg
 
     def test_dict_object():
         _put(('movie', 'star'))
@@ -119,7 +165,7 @@ def main():
 
 
     setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1))
-    setup(replica2, (True, True, unique_id_2, replica1, None, key2, keychain2))
+    setup(replica2, (False, True, unique_id_2, replica1, None, key2, keychain2))
 
 
     start(replica1)
