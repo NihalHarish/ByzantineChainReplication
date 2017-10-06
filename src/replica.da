@@ -22,9 +22,38 @@ class Replica(process):
         self.config_number = 1
         self.retransmission = []
         self.wait_for_result_proof = {}
-        print(self)
+
+    def put(params):
+        key, value = params
+        self.running_state[key] = value
+
+    def append(params):
+        key, new_value = params
+        if key in self.running_state:
+            early_value = self.running_state[key]
+            self.running_state[key] = early_value + new_value
+
+    def get(key):
+        if key in self.running_state:
+            return self.running_state[key]
+        return None
+
+    def _slice(params):
+        key, value = params
+        if key in self.running_state:
+            start, end = map(int, value.split(':'))
+            early_value = self.running_state[key]
+            self.running_state[key] = early_value[start: end]
 
     def run():
+        put(('movie', 'star'))
+        print(self.running_state)
+        append(('movie', ' wars'))
+        print(self.running_state)
+        get('movie')
+        print(self.running_state)
+        _slice(('movie', '0:2'))
+        print(self.running_state)
         await(False)
 
 def main():

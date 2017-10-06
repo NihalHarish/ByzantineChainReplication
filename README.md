@@ -1,6 +1,8 @@
 # ByzantineChainReplication
 
-Implementation of the Byzantine Chain Replication Algorithm using Dist Algo
 
---Nihal Harish
---Nirvik Ghosh
+## Dependencies
+
+```
+    python3 -r requirements.txt
+``
