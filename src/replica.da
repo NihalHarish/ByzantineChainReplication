@@ -1,11 +1,25 @@
 import uuid
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import RSA
+from Crypto import Random
 
+# Replica States
 REPLICA_PENDING = 'PENDING'
 REPLICA_ACTIVE = 'ACTIVE'
 REPLICA_IMMUTABLE = 'IMMUTABLE'
 
+
+# Shuttle message keys
+SHUTTLE_RESULT_PROOF = 'result_proof'
+SHUTTLE_ORDER_PROOF = 'order_proof'
+SHUTTLE_SLOT = 'slot'
+SHUTTLE_OPERATION = 'operation'
+SHUTTLE_CHECKSUM = 'checksum'
+SHUTTLE_CLIENT_ID = 'client_id'
+
+
 class Replica(process):
-    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict):
         self.uuid = unique_id
         self.running_state = {}
         self.history = []
@@ -16,24 +30,35 @@ class Replica(process):
         self.private_key = None
         self.result_shuttle_cache = {}
         self.checkpoint_proof_cache = {}
-        self.isHead = False
-        self.isTail = False
+        self.isHead = isHead
+        self.isTail = isTail
         self.current_slot = 0
         self.config_number = 1
         self.retransmission = []
         self.wait_for_result_proof = {}
+        self.passport = key
+        _build_key_chain(keychain)
 
-    def put(params):
+    def _build_key_chain(keychain):
+        for replica_id, public_key in keychain.items():
+            self.public_keys[replica_id] = RSA.importKey(public_key)
+
+    '''
+        Dictionary Operations
+
+    '''
+
+    def _put(params):
         key, value = params
         self.running_state[key] = value
 
-    def append(params):
+    def _append(params):
         key, new_value = params
         if key in self.running_state:
             early_value = self.running_state[key]
             self.running_state[key] = early_value + new_value
 
-    def get(key):
+    def _get(key):
         if key in self.running_state:
             return self.running_state[key]
         return None
@@ -46,28 +71,55 @@ class Replica(process):
             self.running_state[key] = early_value[start: end]
 
     def run():
-        put(('movie', 'star'))
-        print(self.running_state)
-        append(('movie', ' wars'))
-        print(self.running_state)
-        get('movie')
-        print(self.running_state)
+        test_dict_object()
+        #if self.isHead:
+        #    handle_operation()
+        await(False)
+
+    def update_current_slot_number():
+        self.current_slot += 1
+
+    def compute_running_state_hash():
+        running_state_string = str(self.running_state)
+        return SHA256(running_state_string)
+
+    def handle_operation():
+        update_current__slot_number()
+        _put(('movie', 'star wars'))
+        result_hash = compute_running_state_hash()
+
+    def generate_shuttle_message(result_proof, order_proof, operation):
+        shuttle_msg = {}
+        shuttle_msg['result_proof'] = []
+
+    def test_dict_object():
+        _put(('movie', 'star'))
+        _append(('movie', ' wars'))
+        _get('movie')
         _slice(('movie', '0:2'))
         print(self.running_state)
-        await(False)
+
 
 def main():
     config(clock='Lamport')
+    random_generator = Random.new().read
 
     replica1 = new(Replica, num=1)
     replica2 = new(Replica, num=1)
 
+    key1 = RSA.generate(1024, random_generator)
+    key2 = RSA.generate(1024, random_generator)
 
-    unique_id_1 = uuid.uuid4()
-    setup(replica1, (True, False, unique_id_1.hex, None, replica2))
+    unique_id_1 = uuid.uuid4().hex
+    unique_id_2 = uuid.uuid4().hex
 
-    unique_id_2 = uuid.uuid4()
-    setup(replica2, (True, True, unique_id_2.hex, replica1, None))
+
+    keychain1 = {unique_id_2: key2.publickey().exportKey()}
+    keychain2 = {unique_id_1: key1.publickey().exportKey()}
+
+
+    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1))
+    setup(replica2, (True, True, unique_id_2, replica1, None, key2, keychain2))
 
 
     start(replica1)
