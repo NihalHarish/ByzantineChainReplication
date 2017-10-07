@@ -20,7 +20,7 @@ SHUTTLE = 'shuttle'
 
 class Replica(process):
     def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict):
-        self.uuid = unique_id
+        self.unique_id = unique_id
         self.running_state = {}
         self.history = []
         self.result_proof = []
@@ -87,30 +87,35 @@ class Replica(process):
         return SHA256.new(running_state_json).hexdigest()
 
     def generate_result_statement(result_hash):
-        statement = json.dumps(('result', result_hash)).encode('utf-8')
+        statement = ('result', result_hash)
         return statement
 
     def sign_result_statement(result_statement):
-        signature = self.passport.sign(result_statement, '')
-        return signature
+        result_stm = json.dumps(result_statement).encode('utf-8')
+        result_statement_hash = SHA256.new(result_stm).digest()
+        signature = self.passport.sign(result_statement_hash, '')
+        return (signature, result_statement, self.unique_id)
 
     def add_to_result_proof(signed_result_proof):
         self.result_proof.append(signed_result_proof)
 
 
     def generate_order_statement(slot, operation):
-        order_statement = json.dumps(('order', slot, operation)).encode('utf-8')
+        order_statement = ('order', slot, operation)
         return order_statement
 
     def sign_order_statement(order_statement):
-        signature = self.passport.sign(order_statement, '')
-        return signature
+        order_stm = json.dumps(order_statement).encode('utf-8')
+        order_statement_hash = SHA256.new(order_stm).digest()
+        signature = self.passport.sign(order_statement_hash, '')
+        return (signature, order_statement, self.unique_id)
 
     def add_to_order_proof(signed_order_statement):
         self.order_proof.append(signed_order_statement)
 
     def generate_history_statement(slot, operation, order_proof):  # TODO
-        history_statement = json.dumps((slot, operation, order_proof)).encode('utf-8')
+        print(order_proof)
+        history_statement = json.dumps((slot, operation, order_proof))
         return history_statement
 
     def add_to_history(history_statement):
@@ -144,8 +149,23 @@ class Replica(process):
 
 
     def check_order_proof_validity(order_proof_list):
-        print('Yayy, checking order proof validity ', order_proof_list)
-        pass
+        matching = True
+        slot = None
+        operation = None
+        for order_statement in order_proof_list:
+            signature, statement, replica_id = order_statement
+            _, statement_slot, statement_operation = statement
+            print(statement, replica_id)
+            statement_hash = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
+            public_key = self.public_keys[replica_id]
+            if(public_key.verify(statement_hash, signature)):
+                if slot is None:
+                    _, slot, operation = statement
+                else:
+                    if slot != statement_slot or operation != statement_operation:
+                        matching = False
+        return matching
+
 
     def receive(msg=(SHUTTLE, payload), from_=prev_replica):
         shuttle_msg = payload
