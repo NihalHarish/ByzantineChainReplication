@@ -5,6 +5,12 @@ import uuid
 
 from replica import Replica
 import message_type
+import config_handler
+
+
+GET_CONFIG = 'get_config'
+SEND_CONFIG = 'take_config'
+
 
 class Olympus(process):
     def setup():
@@ -18,22 +24,7 @@ class Olympus(process):
         public_key = key.publickey().exportKey()
         self.replicas_key_pairs[replica_id] = {'key' : key, 'public_key' : public_key}
         return (key, {replica_id : public_key})
-    '''
-    def init_replica(replica_id):
-        init_message_payload = {
-            'isHead' : False,
-            'isTail' : False, 
-            'unique_id' : replica_id,
-            'prev_replica' : None,
-            'next_replica' : None,
-            'key' : None,
-            'keychain' : None
-        }
 
-        if self.replicas_data['count'] == 0: #first replica
-            init_message_payload['isHead'] = True
-            init_message_payload['isTail'] = True
-    '''
     def init_replicas(number):
         replicas = list(new(Replica, num= number))
         for i, replica in enumerate(replicas):
@@ -49,8 +40,16 @@ class Olympus(process):
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain))
         start(replicas)
 
+        
+    def receive(msg=(GET_CONFIG, ), from_=client):
+        config = config_handler.load_config()
+        print("Olympus has received config request from client")
+        send((SEND_CONFIG, config), to=client)
+        print("Olympus has sent config to client")
+
     def run():
         init_replicas(3)
+        print("Olympus Running")
         await(False)
 
 def main():

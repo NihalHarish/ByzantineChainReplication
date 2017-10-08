@@ -1,0 +1,8 @@
+from olympus import Olympus
+from client import Client
+
+def main():
+    olympus = new(Olympus,  args=())
+    client  = new(Client,   args=(olympus,))
+    start(olympus)
+    start(client)
