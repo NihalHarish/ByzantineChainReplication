@@ -1,6 +1,5 @@
-config = {}
-
 def load_config(config_file='config.csv'):
+   config = {}
    with open(config_file,'r') as f:
     for line in f:
         if line[0] != '#':
@@ -9,9 +8,9 @@ def load_config(config_file='config.csv'):
           if len(sep) != 0:
               val = val.strip()
               config[key.strip()] = int(val) if str.isdecimal(val) else val
-
+   return config 
 
 if __name__ == '__main__':
-        load_config()
+        config = load_config()
         print(config)
  
