@@ -226,7 +226,7 @@ class Replica(process):
             self.result_proof.append(result_statement)
 
     def check_result_proof_validity(result_proof_list):
-        print(self, result_proof_list)
+        #print(self, result_proof_list)
         hashed_running_state = compute_running_state_hash()
         for result_statement in result_proof_list:
             signature, statement, replica_id = result_statement
@@ -275,27 +275,25 @@ class Replica(process):
         else:
             self.mode = REPLICA_IMMUTABLE
 
-    def validate_complete_result_shuttle(result_shuttle):
-        '''
-        complete_result_proof = result_shuttle[SHUTTLE_RESULT_PROOF]
-        result = result_shuttle[RESULT]
-        result_digest = SHA256.new(result).hexdigest()
-
+    def validate_complete_result_shuttle(complete_result_proof):
+        #print(complete_result_proof)
+        result_digest = None
         for result_statement in complete_result_proof:
-            print(result_statement)
             signature, statement, replica_id = result_statement
             _, result_hash = statement
+            if result_digest is None:
+                result_digest = result_hash
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()  # for validating if the correct sender has sent the message 
             public_key = self.public_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
                 if result_digest != result_hash:
                     return False
-        '''
         return True
 
     def receive(msg=('result_shuttle', payload), from_=next_replica):
         print(self, ': Receiving result shuttle')
-        if validate_complete_result_shuttle(payload):
+        complete_result_proof = payload[SHUTTLE_RESULT_PROOF]
+        if validate_complete_result_shuttle(complete_result_proof):
             result_shuttle = payload
             checksum = result_shuttle[CHECKSUM]
             self.result_shuttle_cache[checksum] = result_shuttle
@@ -309,6 +307,8 @@ class Replica(process):
                 print('Client receives this message on retrasnmission ', client_result_message)
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
+            elif isHead:
+                print('Received the complete result_shuttle')
 
     def generate_client_result_message(result_shuttle):
         complete_result_proof = result_shuttle[SHUTTLE_RESULT_PROOF]
@@ -353,10 +353,10 @@ def main():
     unique_id_4 = uuid.uuid4().hex
 
 
-    keychain1 = {unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
-    keychain2 = {unique_id_1: key1.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
-    keychain3 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
-    keychain4 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey()}
+    keychain1 = {unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey(), unique_id_1: key1.publickey().exportKey()}
+    keychain2 = {unique_id_1: key1.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey(), unique_id_2: key2.publickey().exportKey()}
+    keychain3 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_4: key4.publickey().exportKey(), unique_id_3: key3.publickey().exportKey()}
+    keychain4 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
 
 
     setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1))
