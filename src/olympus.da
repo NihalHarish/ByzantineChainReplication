@@ -7,7 +7,6 @@ from replica import Replica
 import message_type
 
 class Olympus(process):
-    
     def setup():
         self.public_key = None
         self.replicas_key_pairs = {}
@@ -48,9 +47,7 @@ class Olympus(process):
             key, keychain = generate_replica_key_pair(replica_id)
 
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain))
-            
         start(replicas)
-            
 
     def run():
         init_replicas(3)

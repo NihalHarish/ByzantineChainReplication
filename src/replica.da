@@ -40,6 +40,12 @@ class Replica(process):
         self.retransmission = []
         self.waiting_for_result_proof = {}
         self.passport = key
+        self.operations_dispatcher = {
+            'put' : self._put,
+            'append': self._append,
+            'slice' : self._slice,
+            'get' :self._get
+        }
         _build_key_chain(keychain)
 
     def _build_key_chain(keychain):
@@ -52,11 +58,13 @@ class Replica(process):
     '''
 
     def _put(params):
-        key, value = params
+        key = params['key']
+        value = params['value']
         self.running_state[key] = value
 
     def _append(params):
-        key, new_value = params
+        key = params['key']
+        new_value = params['value']
         if key in self.running_state:
             early_value = self.running_state[key]
             self.running_state[key] = early_value + new_value
@@ -67,7 +75,8 @@ class Replica(process):
         return None
 
     def _slice(params):
-        key, value = params
+        key = params['key']
+        value = params['value']
         if key in self.running_state:
             start, end = map(int, value.split(':'))
             early_value = self.running_state[key]
@@ -76,7 +85,12 @@ class Replica(process):
     def run():
         #test_dict_object()
         if self.isHead:
-            handle_operation()
+            operation =  {}
+            operation['opr'] = 'put'
+            operation['payload'] = {}
+            operation['payload']['key'] = 'movie'
+            operation['payload']['value'] = 'Bangalore Days'
+            handle_operation(operation,head=self.isHead, tail=self.isTail)
         await(False)
 
     def update_current_slot_number():
@@ -114,48 +128,73 @@ class Replica(process):
         self.order_proof.append(signed_order_statement)
 
     def generate_history_statement(slot, operation, order_proof):  # TODO
-        print(order_proof)
         history_statement = json.dumps((slot, operation, order_proof))
         return history_statement
 
     def add_to_history(history_statement):
         self.history.append(history_statement)
 
-    def handle_operation():
-        update_current_slot_number()
-        _put(('movie', 'Bangalore Days'))
+    def perform_operation(operation):
+        '''
+            opr: put/get/append/slice
+            payload: {
+                key, value
+            }
+        '''
+        opr = operation['opr']
+        payload = operation['payload']
+        if opr == 'put' or opr =='append' or opr == 'slice':
+            self.operations_dispatcher[opr](payload)
+        elif opr == 'get':
+            pass # TODO: handle get
+
+    def handle_operation(operation, head=False, tail=False):
+        if self.isHead:
+            update_current_slot_number()
+            perform_operation(operation)
+            generate_result_proof()
+            generate_order_proof(operation)
+            update_history(self.current_slot, operation, self.order_proof)
+            wait_for_result_proof()
+            shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation)
+            dispatch_shuttle_message(shuttle_msg)
+
+    def generate_result_proof():
+        #_put(('movie', 'Bangalore Days'))
         result_hash = compute_running_state_hash()
         result_statement = generate_result_statement(result_hash)
         signed_result_statement = sign_result_statement(result_statement)
         add_to_result_proof(signed_result_statement)
 
+    def generate_order_proof(operation):
         slot = self.current_slot
-        operation = 'put(\'movie\':\'Bangalore Days\')'
+        #operation = 'put(\'movie\':\'Bangalore Days\')'
         order_statement = generate_order_statement(slot, operation)
         signed_order_statement = sign_order_statement(order_statement)
         add_to_order_proof(signed_order_statement)
 
-        history_statement = generate_history_statement(slot, operation, self.order_proof)  # TODO: add replica_id and config number
+    def update_history(slot, operation, order_proof):
+        history_statement = generate_history_statement(slot, operation, order_proof)  # TODO: add replica_id and config number
         add_to_history(history_statement)
 
 
+    def wait_for_result_proof():
         checksum = SHA256.new(json.dumps((1,1)).encode('utf-8')).hexdigest()  # TODO: client request checksum
         waiting_for_result_proof[checksum] = True
 
-        shuttle_message = generate_shuttle_message(self.result_proof, self.order_proof, slot, operation)
+
+    def dispatch_shuttle_message(shuttle_message):
         print('sending shuttle message to ', next_replica)
         send(('shuttle', shuttle_message), to=next_replica)
         await(False) #  TODO: This needs to wait till it receives a complete result proof from its next replica
 
 
     def check_order_proof_validity(order_proof_list):
-        matching = True
         slot = None
         operation = None
         for order_statement in order_proof_list:
             signature, statement, replica_id = order_statement
             _, statement_slot, statement_operation = statement
-            print(statement, replica_id)
             statement_hash = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
             public_key = self.public_keys[replica_id]
             if(public_key.verify(statement_hash, signature)):
@@ -163,9 +202,25 @@ class Replica(process):
                     _, slot, operation = statement
                 else:
                     if slot != statement_slot or operation != statement_operation:
-                        matching = False
-        return matching
+                        return False
+            else:
+                print('it messed up big')
+        print('It matched big timeeee')
+        return True
 
+    def check_result_proof_validity(result_proof_list):
+        hashed_running_state = compute_running_state_hash()
+        for result_statement in result_proof_list:
+            signature, statement, replica_id = result_statement
+            _, result_hash = statement
+            hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()  # for validating if the correct sender has sent the message 
+            public_key = self.public_keys[replica_id]
+            if public_key.verify(hashed_statement, signature):
+                if hashed_running_state != result_hash:
+                    return False
+            else:
+                return False  # wrong sender
+        return True
 
     def receive(msg=(SHUTTLE, payload), from_=prev_replica):
         shuttle_msg = payload
@@ -174,10 +229,27 @@ class Replica(process):
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
             if order_proof_is_valid:
-                pass
+                operation = shuttle_msg[SHUTTLE_OPERATION]
+                update_current_slot_number()
+                perform_operation(operation)
+                result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
+                if check_result_proof_validity(result_proof_shuttle):
+                    generate_order_proof(operation)
+                    generate_result_proof()
+                    update_history(self.current_slot, operation, self.order_proof)
+                    wait_for_result_proof()
+                    shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation)
+                    if self.isTail:
+                        # Send message back to client
+                        print('It arrived at tail')
+                    else:
+                        dispatch_shuttle_message(shuttle_msg)
+                else:
+                    self.mode = REPLICA_IMMUTABLE
             else:
                 self.mode = REPLICA_IMMUTABLE
-
+        else:
+            self.mode = REPLICA_IMMUTABLE
 
     def generate_shuttle_message(result_proof, order_proof, slot, operation):
         shuttle_msg = {}
@@ -201,21 +273,27 @@ def main():
 
     replica1 = new(Replica, num=1)
     replica2 = new(Replica, num=1)
+    replica3 = new(Replica, num=1)
 
     key1 = RSA.generate(1024, random_generator)
     key2 = RSA.generate(1024, random_generator)
+    key3 = RSA.generate(1024, random_generator)
 
     unique_id_1 = uuid.uuid4().hex
     unique_id_2 = uuid.uuid4().hex
+    unique_id_3 = uuid.uuid4().hex
 
 
-    keychain1 = {unique_id_2: key2.publickey().exportKey()}
-    keychain2 = {unique_id_1: key1.publickey().exportKey()}
+    keychain1 = {unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey()}
+    keychain2 = {unique_id_1: key1.publickey().exportKey(), unique_id_3: key3.publickey().exportKey()}
+    keychain3 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey()}
 
 
     setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1))
-    setup(replica2, (False, True, unique_id_2, replica1, None, key2, keychain2))
+    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2))
+    setup(replica3, (False, True, unique_id_3, replica2, None, key3, keychain3))
 
 
     start(replica1)
     start(replica2)
+    start(replica3)
