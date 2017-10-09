@@ -120,6 +120,7 @@ class Replica(process):
         return (signature, result_statement, self.unique_id)
 
     def add_to_result_proof(signed_result_proof):
+        self.result_proof = []
         self.result_proof.append(signed_result_proof)
 
 
@@ -134,6 +135,7 @@ class Replica(process):
         return (signature, order_statement, self.unique_id)
 
     def add_to_order_proof(signed_order_statement):
+        self.order_proof = []  # TODO: Added this new
         self.order_proof.append(signed_order_statement)
 
     def generate_history_statement(slot, operation, order_proof):  # TODO
@@ -247,15 +249,15 @@ class Replica(process):
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
             if order_proof_is_valid:
-                populate_order_proof(order_proof_shuttle)
                 operation = shuttle_msg[SHUTTLE_OPERATION]
                 update_current_slot_number()
                 perform_operation(operation)
                 result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
                 if check_result_proof_validity(result_proof_shuttle):
                     generate_order_proof(operation)
-                    populate_result_proof(result_proof_shuttle)
+                    populate_order_proof(order_proof_shuttle)
                     generate_result_proof()
+                    populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation, self.order_proof)
                     checksum = shuttle_msg[CHECKSUM]
                     wait_for_result_shuttle(checksum)
