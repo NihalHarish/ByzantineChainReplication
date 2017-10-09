@@ -3,7 +3,7 @@ from Crypto.Hash import SHA256
 
 import re
 import uuid
-
+import time
 #messages
 
 GET_CONFIG = 'get_config'
@@ -65,6 +65,9 @@ class Client(process):
         head = get_head(self.config)
         print(something)
         send(('please_work', something), to=head)
+        time.sleep(3)
+        something_again = {'request_number': 1, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'movie', 'value': ' wars'}, 'opr': 'append'}
+        send(('please_work', something_again), to=head)
 
     def run():
         print('Client running')
