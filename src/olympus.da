@@ -25,7 +25,7 @@ class Olympus(process):
         key = RSA.generate(1024, random_generator)
         public_key = key.publickey().exportKey()
         self.replicas_key_pairs[replica_id] = {'key' : key, 'public_key' : public_key}
-        return (key, {replica_id : public_key})
+        return (key, self.replicas_key_pairs)
 
     def init_replicas(number):
         replicas = list(new(Replica, num= number))
