@@ -24,20 +24,23 @@ class Olympus(process):
         random_generator = Random.new().read
         key = RSA.generate(1024, random_generator)
         public_key = key.publickey().exportKey()
-        self.replicas_key_pairs[replica_id] = {'key' : key, 'public_key' : public_key}
+        self.replicas_key_pairs[replica_id] = public_key
         return (key, self.replicas_key_pairs)
 
     def init_replicas(number):
         replicas = list(new(Replica, num= number))
+        replica_ids = [uuid.uuid4().hex for replica in replicas]
+        keys  = [generate_replica_key_pair(replica_id) for replica_id in replica_ids]
+
         for i, replica in enumerate(replicas):
-            replica_id = uuid.uuid4().hex
+            replica_id = replica_ids[i]
             isHead = True if i==0 else False
             isTail = True if i==(len(replicas)-1) else False
 
             prev_r = None if isHead else replicas[i-1]
             next_r = None if isTail else replicas[i+1]
 
-            key, keychain = generate_replica_key_pair(replica_id)
+            key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain))
