@@ -88,18 +88,19 @@ class Replica(process):
             early_value = self.running_state[key]
             self.running_state[key] = early_value[start: end]
 
+
     def run():
         #test_dict_object()
-        if self.isHead:
-            operation =  {}
-            operation['opr'] = 'put'
-            operation['payload'] = {}
-            operation['payload']['key'] = 'movie'
-            operation['payload']['value'] = 'Bangalore Days'
-            client_id = 1
-            client_request_id = 1
-            client_info = (client_id, client_request_id)
-            handle_operation(operation, client_info)
+        #if self.isHead:
+        #    operation =  {}
+        #    operation['opr'] = 'put'
+        #    operation['payload'] = {}
+        #    operation['payload']['key'] = 'movie'
+        #    operation['payload']['value'] = 'Bangalore Days'
+        #    client_id = 1
+        #    client_request_id = 1
+        #    client_info = (client_id, client_request_id)
+        #    handle_operation(operation, client_info)
         await(False)
 
     def update_current_slot_number():
@@ -242,7 +243,18 @@ class Replica(process):
                 return False  # wrong sender
         return True
 
-    def receive(msg=(SHUTTLE, payload), from_=prev_replica):
+    def receive(msg=('please_work', client_payload), from_=c):
+        operation = {}
+        operation['client_id'] = client_payload['client_id']
+        operation['request_id'] = client_payload['request_number']
+        operation['opr'] = client_payload['opr']
+        operation['payload'] = {}
+        operation['payload']['key'] = client_payload['payload']['key']
+        operation['payload']['value'] = client_payload['payload']['value']
+        client_info = (operation['client_id'], operation['request_id'])
+        handle_operation(operation, client_info)
+
+    def receive(msg=('shuttle', payload), from_=prev_replica):
         shuttle_msg = payload
         #print(shuttle_msg)
         if self.current_slot+1 == shuttle_msg[SHUTTLE_SLOT]:  # new slot

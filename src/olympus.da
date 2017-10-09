@@ -44,7 +44,7 @@ class Olympus(process):
         start(replicas)
         self.replica_list = replicas
 
-        
+
     def receive(msg=(GET_CONFIG, ), from_=client):
         config = config_handler.load_config()
         print("Olympus has received config request from client")
