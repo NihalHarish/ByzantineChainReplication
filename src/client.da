@@ -1,6 +1,9 @@
 import config_handler
 from Crypto.Hash import SHA256
 
+import re
+import uuid
+
 #messages
 
 GET_CONFIG = 'get_config'
@@ -16,16 +19,53 @@ class Client(process):
     def setup(olympus: instance):
         self.olympus = olympus
         self.config = None
+        self.request_number = 0
+        self.client_id = uuid.uuid4().hex
 
     def request_config_from_olympus():
         send((GET_CONFIG,), to=self.olympus)
         await(some(received((CONFIG_RECEIVED, config), from_=self.olympus)))
         return config
 
+    def make_operation_payload(operation):
+        operation_payload = {}
+        print('Operation: ', operation)
+        operation_payload['opr'] = re.match('^[^\(]+', operation).group()
+        key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',') 
+        operation_payload['payload'] = {}
+        operation_payload['payload']['key']   = key
+        operation_payload['payload']['value'] = value
+        operation_payload['client_id'] = self.client_id
+        operation_payload['request_number'] = self.request_number
+        return operation_payload
+
+    def get_head(config):
+        '''
+        replicas = config['replica_list']
+        for replica in replicas:
+            if replica.isHead:
+                return replica
+        else:
+            return None
+        '''
+        return config['head_node']
+
+    def parse_workload(workload):
+        workload_list = workload.split(';')
+        print('Workload List: ', workload_list)
+        operation_set = []
+        for work in workload_list:
+            operation_set.append(work)
+        return operation_set
     
     def client_request():
         self.config = request_config_from_olympus()
-        print('Client Config: ', self.config)
+        operation_set  = parse_workload(self.config['workload[1]'])
+        print('Operation Set: ', operation_set)
+        payload = make_operation_payload(operation_set[0])
+        head = get_head(self.config)
+        print('Head: ', head)
+        send(('handle_operation', payload), to=head)
 
     def run():
         print('Client running')
