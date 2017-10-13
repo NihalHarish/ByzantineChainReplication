@@ -4,7 +4,17 @@ from client import Client
 def main():
     #olympus = new(Olympus,  args=())
     #client  = new(Client,   args=(olympus,))
-    olympus = new(Olympus,  args=(), at='OlympusNode')
-    client  = new(Client,   args=(olympus,), at='ClientNode')
+
+    #olympus = new(Olympus,  args=(), at='OlympusNode')
+    #client  = new(Client,   args=(olympus,), at='ClientNode')
+
+    olympus = new(Olympus, at='OlympusNode')
+    client = new(Client, at='ClientNode')
+
+
+    print('AT MAINNNNNNNNNNNNNNNNNNN, the type of client is', type(client))
+    print('AT MAINNNNNNNNNNNNNNNNNNN, the type of olympus is', type(olympus))
+    setup(olympus, (client,))
+    setup(client, (olympus,))
     start(olympus)
     start(client)

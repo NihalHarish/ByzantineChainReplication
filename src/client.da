@@ -1,6 +1,7 @@
 import config_handler
 from Crypto.Hash import SHA256
-
+from Crypto.PublicKey import RSA
+import json
 import re
 import uuid
 import time
@@ -20,6 +21,12 @@ class Client(process):
         self.config = None
         self.request_number = 0
         self.client_id = uuid.uuid4().hex
+        self.replica_keys = {}
+        self.request_timeout = 10
+        self.head = None
+        self.replicas =[]
+        self.T = 3
+
 
     def request_config_from_olympus():
         send((GET_CONFIG,), to=self.olympus)
@@ -28,11 +35,11 @@ class Client(process):
         print("Client has received config: ", config)
         return config
 
-    def make_operation_payload(operation):
+    def craft_operation_payload(operation):
         operation_payload = {}
         print('Operation: ', operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group()
-        key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',') 
+        key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
         operation_payload['payload']['key']   = key
         operation_payload['payload']['value'] = value
@@ -41,14 +48,6 @@ class Client(process):
         return operation_payload
 
     def get_head(config):
-        '''
-        replicas = config['replica_list']
-        for replica in replicas:
-            if replica.isHead:
-                return replica
-        else:
-            return None
-        '''
         return config['head_node']
 
     def parse_workload(workload):
@@ -59,28 +58,83 @@ class Client(process):
             operation_set.append(work)
         return operation_set
 
-    def client_request():
+    def validate_result_proof(replica_response):
+        '''
+            We check if atleast t+1 replicas have verfied or not
+        '''
+        result, result_proof = replica_response
+        correct_replica = 0
+        result_state_json = json.dumps(result).encode('utf-8')
+        hashed_result = SHA256.new(result_state_json).hexdigest()
+
+        for result_statement in result_proof:
+            signature, statement, replica_id = result_statement
+            _, result_hash = statement
+            hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
+            public_key = self.replica_keys[replica_id]
+            if public_key.verify(hashed_statement, signature):
+                if result_hash == hashed_result:
+                    correct_replica += 1
+
+        if correct_replica >= self.T + 1:
+            return True
+        return False
+
+    def retransmission_request(payload):
+        print('RETRANSMISSIONNNNNNNNNNNNNNNNNNNNN')
+        for replica in self.replicas:
+            send(('retransmission', payload), to=replica)
+
+        if await(some(received(('result', finale_result)))):
+            if validate_result_proof(finale_result):
+                self.request_number += 1
+                print('OK')
+            else:
+                print('Invalid Result Proof')
+
+        #elif await(some(received(('error', crap)))):
+        #    print('Replica is in immuatable stage')
+
+        elif timeout(5):
+            print('TIMEOUT HAS EXPIRED YET AGAIN')
+            # start over
+
+
+    def make_operation_request():
+        operation_set = parse_workload(self.config['workload[1]'])
+        payload = craft_operation_payload(operation_set[0])
+        send(('please_work', payload), to=head)
+        if await(some(received(('result', finale_result)))):
+            if validate_result_proof(finale_result):
+                self.request_number+=1
+                print('OK')
+            else:
+                print('Invalid result proof')
+                # start over
+        elif timeout(5):
+            print('TIMEOUT HAS EXPIRED')
+            retransmission_request(payload)
+
+    def start_over():
+        self.config = {}
         self.config = request_config_from_olympus()
-        operation_set  = parse_workload(self.config['workload[1]'])
-        print('Operation Set: ', operation_set)
-        something = make_operation_payload(operation_set[0])
-        head = get_head(self.config)
-        print(something)
-        send(('please_work', something), to=head)
-        time.sleep(3)
-        something_again = {'request_number': 1, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'movie', 'value': ' wars'}, 'opr': 'append'}
-        send(('please_work', something_again), to=head)
-        time.sleep(3)
-        something_again = {'request_number': 2, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'batman', 'value': 'rocks'}, 'opr': 'put'}
-        send(('please_work', something_again), to=head)
-        time.sleep(3)
-        something_again = {'request_number': 3, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'iron man', 'value': 'sucks'}, 'opr': 'put'}
-        send(('please_work', something_again), to=head)
-        time.sleep(3)
+        self.request_timeout = self.config['client_timeout']
+        self.head = self.config['head_node']
+        self.T = int(self.config['t'])
+        self.replicas = self.config['replicas']
+        build_replica_keys()
+        make_operation_request()
+
+    def build_replica_keys():
+        for replica_id, public_key in self.config['replica_keys'].items():
+            self.replica_keys[replica_id] = RSA.importKey(public_key)
 
     def run():
         print('Client running')
-        client_request()
+        start_over()
+        #self.config = request_config_from_olympus()
+        #make_operation_request()
+        #client_request()
 
 
     '''
