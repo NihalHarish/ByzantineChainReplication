@@ -23,7 +23,9 @@ class Client(process):
 
     def request_config_from_olympus():
         send((GET_CONFIG,), to=self.olympus)
-        await(some(received((CONFIG_RECEIVED, config), from_=self.olympus)))
+        print('Client is about to await')
+        await(some(received((CONFIG_RECEIVED, config))))
+        print("Client has received config: ", config)
         return config
 
     def make_operation_payload(operation):

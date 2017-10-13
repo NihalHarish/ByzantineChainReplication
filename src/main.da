@@ -2,7 +2,9 @@ from olympus import Olympus
 from client import Client
 
 def main():
-    olympus = new(Olympus,  args=())
-    client  = new(Client,   args=(olympus,))
+    #olympus = new(Olympus,  args=())
+    #client  = new(Client,   args=(olympus,))
+    olympus = new(Olympus,  args=(), at='OlympusNode')
+    client  = new(Client,   args=(olympus,), at='ClientNode')
     start(olympus)
     start(client)
