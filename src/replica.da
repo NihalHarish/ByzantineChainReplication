@@ -278,7 +278,7 @@ class Replica(process):
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
                         # Send message back to client
-                        print('It arrived at tail')
+                        print('It arrived at tail', self.running_state)
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
                     else:
                         dispatch_shuttle_message(shuttle_msg)
@@ -322,7 +322,7 @@ class Replica(process):
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
-                print('Received the complete result_shuttle ', self.running_state)
+                print('Received the complete result_shuttle ')
 
     def generate_client_result_message(result_shuttle):
         complete_result_proof = result_shuttle[SHUTTLE_RESULT_PROOF]

@@ -68,6 +68,13 @@ class Client(process):
         time.sleep(3)
         something_again = {'request_number': 1, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'movie', 'value': ' wars'}, 'opr': 'append'}
         send(('please_work', something_again), to=head)
+        time.sleep(3)
+        something_again = {'request_number': 2, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'batman', 'value': 'rocks'}, 'opr': 'put'}
+        send(('please_work', something_again), to=head)
+        time.sleep(3)
+        something_again = {'request_number': 3, 'client_id': '1a774ed9e41d4ed89ff221e837027e7c', 'payload': {'key': 'iron man', 'value': 'sucks'}, 'opr': 'put'}
+        send(('please_work', something_again), to=head)
+        time.sleep(3)
 
     def run():
         print('Client running')
