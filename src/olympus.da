@@ -50,11 +50,11 @@ class Olympus(process):
 
     def receive(msg=(GET_CONFIG, ), from_=client):
         config = config_handler.load_config()
-        print("Olympus has received config request from client")
+        print("Olympus has received config request from client: ", client)
         config['replica_list'] = self.replica_list
         config['head_node'] = self.head_node
         send((SEND_CONFIG, config), to=client)
-        print("Olympus has sent config to client")
+        print("Olympus has sent config to client: ", client)
 
     def run():
         init_replicas(3)
