@@ -81,7 +81,6 @@ class Client(process):
         return False
 
     def retransmission_request(payload):
-        print('RETRANSMISSIONNNNNNNNNNNNNNNNNNNNN')
         for replica in self.replicas:
             send(('retransmission', payload), to=replica)
 
@@ -92,8 +91,8 @@ class Client(process):
             else:
                 print('Invalid Result Proof')
 
-        #elif await(some(received(('error', crap)))):
-        #    print('Replica is in immuatable stage')
+        elif some(received(('error', _))):
+            print('Some replica is in immutable stage')
 
         elif timeout(5):
             print('TIMEOUT HAS EXPIRED YET AGAIN')
