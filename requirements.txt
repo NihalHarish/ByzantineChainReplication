@@ -1,2 +1,4 @@
-uuid
-pycrypto
+pycrypto==2.6.1
+pyDistAlgo==1.0.9
+RandomWords==0.2.1
+uuid==1.30

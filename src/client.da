@@ -88,7 +88,7 @@ class Client(process):
         if await(some(received(('result', finale_result)))):
             if validate_result_proof(finale_result):
                 self.request_number += 1
-                print('OK')
+                print('--------OK-----------')
             else:
                 print('Invalid Result Proof')
 
@@ -101,7 +101,9 @@ class Client(process):
 
 
     def make_operation_request():
-        operation_set = parse_workload(self.config['workload[1]'])
+        #workload = self.config['workload'][1]
+        workload = config_handler.pseudorandom(10, 5)
+        operation_set = parse_workload(workload)
         payload = craft_operation_payload(operation_set[0])
         send(('please_work', payload), to=head)
         if await(some(received(('result', finale_result)))):
