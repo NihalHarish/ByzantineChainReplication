@@ -11,7 +11,7 @@
 
 ### Client
 
-- [ ] generate pseudorandom workload with good diversity using specified seed  
+- [x] generate pseudorandom workload with good diversity using specified seed  
 - [ ] generate request sequence specified in config file  
 - [x] handle result: check signatures and hashes in result proof  
 - [x] timeout and send request to all replicas if timely response not received  
