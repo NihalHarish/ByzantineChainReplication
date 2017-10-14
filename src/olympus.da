@@ -44,7 +44,7 @@ class Olympus(process):
             key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client, self.head_node))
         start(replicas)
         self.replica_list = replicas
 

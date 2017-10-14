@@ -26,7 +26,7 @@ RESULT_SHUTTLE = 'fuckthisshit'
 RESULT = 'result'
 
 class Replica(process):
-    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, client: instance):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, client: instance, head: Replica):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -55,6 +55,7 @@ class Replica(process):
         }
         _build_key_chain(keychain)
         self.client = client
+        self.head_replica = head
 
 
     def _build_key_chain(keychain):
@@ -303,9 +304,9 @@ class Replica(process):
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
                         # Send message back to client
-                        print('sending result msg to ', client)
-                        #send(('result', (self.running_state, self.result_proof)), to=client)
+                        send(('result', (self.running_state, self.result_proof)), to=client)
                         print('It arrived at tail', self.running_state)
+                        #time.sleep(10)
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
                     else:
                         dispatch_shuttle_message(shuttle_msg)
@@ -341,13 +342,12 @@ class Replica(process):
             checksum = result_shuttle[CHECKSUM]
             self.result_shuttle_cache[checksum] = result_shuttle  # used during retransmission scenario
             del self.waiting_for_result_shuttle[checksum]
-
+            '''
             if checksum in self.retransmission:
                 self.retransmission.remove(checksum)
-                # TODO: stop the timer
                 client_result_message = generate_client_result_message(result_shuttle)
-                # send this message to the client
                 print('Client receives this message on retrasnmission ', client_result_message)
+            '''
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
@@ -363,22 +363,28 @@ class Replica(process):
             self.retransmission.append(checksum)
 
         if self.mode == REPLICA_IMMUTABLE:
-            send(('error', ), to=c)  # TODO: Problem at the client side
+            send(('error','shit'), to=c)  # TODO: Problem at the client side
         elif checksum in self.result_shuttle_cache:
+            print('sending data to client from its cache')
             proof = self.result_shuttle_cache[checksum][SHUTTLE_RESULT_PROOF]
             res = self.result_shuttle_cache[checksum][RESULT]
             send(('result', (res, proof)), to=c)
-        else:  # TODO: This part is completely messed up.. especially about cancelling timers
+        else:                                           # TODO: This part is completely messed up.. especially about cancelling timers
             if not isHead:
-                send(('retransmission', retrans_payload), to=prev_replica)
+                print('forwarding request to the head')
+                send(('retransmission', retrans_payload), to=head_replica)
                 if await(some(received(('result_shuttle', payload)))):
-                    pass
+                    print('Retransmission request being processed @nonhead')
                 elif timeout(30):
                     print('Have to send reconfigure message to Olympus')
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
-                    pass
+                    handle_operation(retrans_payload, client_info)
+                if await(some(received(('result_shuttle', payload)))):
+                    print('Retransmission request being processed @head')
+                elif timeout(30):
+                    print('Have to send reconfigure message to Olympus')
 
 
 
@@ -433,10 +439,10 @@ def main():
     keychain4 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
 
 
-    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None))
-    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None))
-    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None))
-    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None))
+    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1))
+    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1))
+    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1))
+    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1))
 
 
     start(replica1)
