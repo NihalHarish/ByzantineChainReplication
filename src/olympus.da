@@ -2,6 +2,7 @@ from Crypto.PublicKey import RSA
 from Crypto import Random
 
 import uuid
+import re
 import logging
 
 from replica import Replica
@@ -15,13 +16,13 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client: instance, test_case: str):
+    def setup(client_list: instance, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}    #TODO: Change variable name??
         self.replica_list = []
         self.head_node = None
-        self.client = client
+        self.client_list = client_list
         self.config = {}
         self.test_case = test_case
 
@@ -49,24 +50,45 @@ class Olympus(process):
             key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client, self.head_node))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
+
+    def parse_workload(workload):
+        match = re.match('^[^\(]+', workload).group()
+        if match == 'pseudorandom':
+            seed, size = re.search('\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed  = int(seed)
+            size  = int(size)
+            workload = config_handler.pseudorandom(seed, size)
+            print('Workload: ', workload)
+        return workload
+
+    def craft_client_config(client):
+        client_index = self.client_list.index(client)
+        config = config_handler.load_config()[test_case]
+        client_config = {}
+        client_config['client_timeout'] = config['client_timeout']
+        client_config['workload']       = parse_workload(self.config['workload'][client_index])
+        client_config['replica_list']   = self.replica_list
+        client_config['head_node']      = self.head_node
+        client_config['replica_keys']   = self.replicas_key_pairs
+        client_config['replicas']       = self.replica_list
+        client_config['t']              = config['t']
+        return client_config
+
+
+    def receive(msg=(GET_CONFIG, ), from_=client):
+        print("Olympus has received config request from client: ", client)
+        config = craft_client_config(client)
+        send((SEND_CONFIG, config), to=client)
+        logging.info("Olympus has sent config to client: "+ str(client))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/')
         logging.basicConfig(filename=os.path.join(logging_directory, 'olympus.log'), filemode='w', level=logging.INFO)
 
-    def receive(msg=(GET_CONFIG, ), from_=client):
-        config = config_handler.load_config()
-        logging.info("Olympus has received config request from client: "+ str(client))
-        config['replica_list'] = self.replica_list
-        config['head_node'] = self.head_node
-        config['replica_keys'] = self.replicas_key_pairs
-        config['replicas'] = self.replica_list
-        send((SEND_CONFIG, config), to=client)
-        logging.info("Olympus has sent config to client: "+ str(client))
 
     def run():
         init_logger()

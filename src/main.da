@@ -17,8 +17,9 @@ def main():
 
     olympus = new(Olympus, at='OlympusNode')
     client = new(Client, at='ClientNode')
-
-    setup(olympus, (client, test_case))
+    client_list = list(client)
+    setup(olympus, (client_list, test_case))
     setup(client, (olympus,))
     start(olympus)
-    start(client)
+    print('Worked till here')
+    start(client_list)
