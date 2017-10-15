@@ -8,6 +8,7 @@ from replica import Replica
 import message_type
 import config_handler
 
+import os
 
 GET_CONFIG = 'get_config'
 SEND_CONFIG = 'take_config'
@@ -50,9 +51,10 @@ class Olympus(process):
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
-    
+
     def init_logger():
-        logging.basicConfig(filename='olympus.log', filemode='w', level=logging.INFO)
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/')
+        logging.basicConfig(filename=os.path.join(logging_directory, 'olympus.log'), filemode='w', level=logging.INFO)
 
     def receive(msg=(GET_CONFIG, ), from_=client):
         config = config_handler.load_config()
