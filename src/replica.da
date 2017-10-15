@@ -358,6 +358,7 @@ class Replica(process):
             checksum = result_shuttle[CHECKSUM]
             self.result_shuttle_cache[checksum] = result_shuttle  # used during retransmission scenario
             del self.waiting_for_result_shuttle[checksum]
+            # TODO: If the checksum is present in retransmission: send the result_shuttle to the client directly
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
@@ -373,7 +374,7 @@ class Replica(process):
             self.retransmission.append(checksum)
 
         if self.mode == REPLICA_IMMUTABLE:
-            send(('error','shit'), to=c)  # TODO: Problem at the client side
+            send(('error','immutable'), to=c)
         elif checksum in self.result_shuttle_cache:
             print('sending data to client from its cache')
             proof = self.result_shuttle_cache[checksum][SHUTTLE_RESULT_PROOF]
