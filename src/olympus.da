@@ -20,6 +20,7 @@ class Olympus(process):
         self.replica_list = []
         self.head_node = None
         self.client = client
+        self.config = {}
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -50,7 +51,6 @@ class Olympus(process):
 
 
     def receive(msg=(GET_CONFIG, ), from_=client):
-        config = config_handler.load_config()
         print("Olympus has received config request from client: ", client)
         config['replica_list'] = self.replica_list
         config['head_node'] = self.head_node
@@ -60,7 +60,11 @@ class Olympus(process):
         print("Olympus has sent config to client: ", client)
 
     def run():
-        init_replicas(3)
+        self.config = config_handler.load_config()['test1']
+        t = self.config['t']
+        t = 2*t + 1
+        print("T: ", t)
+        init_replicas(t)
         print("Olympus Running")
         await(False)
 

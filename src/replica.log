@@ -1,0 +1,3 @@
+INFO:root:Replica is running
+INFO:root:dispatch shuttle message
+WARNING:replica.Replica:send: 'to' is None!

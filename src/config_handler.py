@@ -16,15 +16,36 @@ def load_config(config_file='config.csv'):
     config = parse_config(config)
     return config
 
+def load_config(config_file='config.csv'):
+    config = {}
+    test_cases = {}
+    test_case_key = None
+    with open(config_file,'r') as f:
+        for line in f:
+            if line[0] != '#':
+                (key,sep,val) = line.partition('=')
+                # if the line does not contain '=', it is invalid and hence ignored
+                if len(sep) != 0:
+                    val = val.strip()
+                    if key.strip() == 'test_case_name':
+                        if test_case_key:
+                            test_cases[test_case_key] = parse_config(config)
+                        test_case_key = val.strip()
+                        config = {}
+                    else:
+                        config[key.strip()] = int(val) if str.isdecimal(val) else val
+    test_cases[test_case_key] = parse_config(config)
+    #config = parse_config(config)
+    return test_cases
 
-def __generate_pseudo_random_workload(size):
+def __generate_pseudo_random_workload(seed, size):
     operation_list = ['put', 'get', 'slice', 'append']
     current_key_set = ['start']
     rw = RandomWords()
     random_workload = []
     workload = ""
 
-    random.random(seed) 
+    random.seed(seed) 
 
     for x in range(size):
         random_word = rw.random_word()
@@ -64,5 +85,5 @@ def parse_config(config):
 
 if __name__ == '__main__':
     config = load_config()
-    #print(config)
-    print(pseudorandom(17, 10))
+    print(config)
+    #print(pseudorandom(17, 10))
