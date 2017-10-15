@@ -27,7 +27,6 @@ class Client(process):
         self.replicas =[]
         self.T = 3
 
-
     def request_config_from_olympus():
         send((GET_CONFIG,), to=self.olympus)
         print('Client is about to await')

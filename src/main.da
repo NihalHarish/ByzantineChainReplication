@@ -1,20 +1,24 @@
 from olympus import Olympus
 from client import Client
 
-def main():
-    #olympus = new(Olympus,  args=())
-    #client  = new(Client,   args=(olympus,))
+from optparse import OptionParser
 
-    #olympus = new(Olympus,  args=(), at='OlympusNode')
-    #client  = new(Client,   args=(olympus,), at='ClientNode')
+def main():
+    option_parser = OptionParser()
+    option_parser.add_option("--test_case_name", dest='test_case', help = 'test case name in the config file that should be run', metavar='TESTCASE', required=True)
+    (options, args) = option_parser.parse_args()
+    test_case = None
+    if not options.test_case:
+        print("Test Case Name Not Supplied")
+        print("Loading Default: test1")
+        test_case = "test1"
+    else:
+        test_case = options.test_case
 
     olympus = new(Olympus, at='OlympusNode')
     client = new(Client, at='ClientNode')
 
-
-    print('AT MAINNNNNNNNNNNNNNNNNNN, the type of client is', type(client))
-    print('AT MAINNNNNNNNNNNNNNNNNNN, the type of olympus is', type(olympus))
-    setup(olympus, (client,))
+    setup(olympus, (client, options.test_case))
     setup(client, (olympus,))
     start(olympus)
     start(client)

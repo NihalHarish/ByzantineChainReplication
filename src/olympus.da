@@ -13,7 +13,7 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client: instance):
+    def setup(client: instance, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}    #TODO: Change variable name??
@@ -21,6 +21,7 @@ class Olympus(process):
         self.head_node = None
         self.client = client
         self.config = {}
+        self.test_case = test_case
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -60,7 +61,7 @@ class Olympus(process):
         print("Olympus has sent config to client: ", client)
 
     def run():
-        self.config = config_handler.load_config()['test1']
+        self.config = config_handler.load_config()[self.test_case]
         t = self.config['t']
         t = 2*t + 1
         print("T: ", t)
