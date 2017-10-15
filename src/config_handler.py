@@ -17,14 +17,14 @@ def load_config(config_file='config.csv'):
     return config
 
 
-def __generate_pseudo_random_workload(size):
+def __generate_pseudo_random_workload(seed, size):
     operation_list = ['put', 'get', 'slice', 'append']
     current_key_set = ['start']
     rw = RandomWords()
     random_workload = []
     workload = ""
 
-    random.random(seed) 
+    random.seed(seed) 
 
     for x in range(size):
         random_word = rw.random_word()

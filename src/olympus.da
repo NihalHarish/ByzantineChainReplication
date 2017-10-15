@@ -2,6 +2,7 @@ from Crypto.PublicKey import RSA
 from Crypto import Random
 
 import uuid
+import logging
 
 from replica import Replica
 import message_type
@@ -29,6 +30,7 @@ class Olympus(process):
         return (key, self.replicas_key_pairs)
 
     def init_replicas(number):
+        logging.info("Staring replica init for t = "+ str(number)) 
         replicas = list(new(Replica, num= number))
         replica_ids = [uuid.uuid4().hex for replica in replicas]
         keys  = [generate_replica_key_pair(replica_id) for replica_id in replica_ids]
@@ -46,25 +48,25 @@ class Olympus(process):
                 self.head_node = replica
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client, self.head_node))
         start(replicas)
+        logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
-
+    
+    def init_logger():
+        logging.basicConfig(filename='olympus.log', filemode='w', level=logging.INFO)
 
     def receive(msg=(GET_CONFIG, ), from_=client):
         config = config_handler.load_config()
-        print("Olympus has received config request from client: ", client)
+        logging.info("Olympus has received config request from client: "+ str(client))
         config['replica_list'] = self.replica_list
         config['head_node'] = self.head_node
         config['replica_keys'] = self.replicas_key_pairs
         config['replicas'] = self.replica_list
         send((SEND_CONFIG, config), to=client)
-        print("Olympus has sent config to client: ", client)
+        logging.info("Olympus has sent config to client: "+ str(client))
 
     def run():
+        init_logger()
+        logging.info("Olympus has started")
         init_replicas(3)
         print("Olympus Running")
         await(False)
-
-#def main():
-#    olympus = new(Olympus, args=())
-#    start(olympus)
-

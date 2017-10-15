@@ -1,0 +1,4 @@
+INFO:root:Client running
+INFO:root:Client has requested for config from olympus: {<Olympus:21402#OlympusNode>}
+INFO:root:Client is waiting for a response from olympus: {<Olympus:21402#OlympusNode>}
+INFO:root:Client has received the config: 

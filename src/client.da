@@ -5,6 +5,7 @@ import json
 import re
 import uuid
 import time
+import logging
 #messages
 
 GET_CONFIG = 'get_config'
@@ -29,10 +30,12 @@ class Client(process):
 
 
     def request_config_from_olympus():
+        print('Request for config')
+        logging.info("Client has requested for config from olympus: " + str(olympus))
         send((GET_CONFIG,), to=self.olympus)
-        print('Client is about to await')
+        logging.info('Client is waiting for a response from olympus: ' +str(olympus))
         await(some(received((CONFIG_RECEIVED, config))))
-        print("Client has received config: ", config)
+        logging.info("Client has received the config: ", config)
         return config
 
     def craft_operation_payload(operation):
@@ -126,38 +129,15 @@ class Client(process):
         build_replica_keys()
         make_operation_request()
 
+    def init_logger():
+        logging.basicConfig(filename='client.log', filemode='w', level=logging.DEBUG)
+
     def build_replica_keys():
         for replica_id, public_key in self.config['replica_keys'].items():
             self.replica_keys[replica_id] = RSA.importKey(public_key)
 
     def run():
+        init_logger()
+        logging.info("Client running")
         print('Client running')
         start_over()
-        #self.config = request_config_from_olympus()
-        #make_operation_request()
-        #client_request()
-
-
-    '''
-    def receive(msg=('operation_result', response), from_=head):
-        print(response)
-        def validate_response():
-                result = response['result']
-                result_proof = response['result_proof']
-                hashed_result = SHA256.new(result).hexdigest()
-                count = 0
-                # for index, proof in enumerate(result_proof):
-                #    if hashed_result == 
-                return None
-
-    def retransmit():
-        self.timer_retransmission = time.clock()
-        for replica in replica_set:
-            send(('retransmission', client_id, encrypted_payload, private_key), to=replica)
-            if await(received(('response', response), from_=replica)):
-                pass
-            elif timeout(TIMEOUT):
-                #invalidate response
-                pass
-
-    '''
