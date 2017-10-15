@@ -25,6 +25,7 @@ class Olympus(process):
         self.client_list = client_list
         self.config = {}
         self.test_case = test_case
+        self.tail_node = None
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -50,6 +51,8 @@ class Olympus(process):
             key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
+            if isTail:
+                self.tail_node = replica
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
@@ -66,6 +69,7 @@ class Olympus(process):
         return workload
 
     def craft_client_config(client):
+        print('crafting clients config')
         client_index = self.client_list.index(client)
         config = config_handler.load_config()[test_case]
         client_config = {}
@@ -73,15 +77,18 @@ class Olympus(process):
         client_config['workload']       = parse_workload(self.config['workload'][client_index])
         client_config['replica_list']   = self.replica_list
         client_config['head_node']      = self.head_node
+        client_config['tail_node']      = self.tail_node
         client_config['replica_keys']   = self.replicas_key_pairs
         client_config['replicas']       = self.replica_list
         client_config['t']              = config['t']
+        print('done crafting clients config!')
         return client_config
 
 
     def receive(msg=(GET_CONFIG, ), from_=client):
         print("Olympus has received config request from client: ", client)
         config = craft_client_config(client)
+        print('Will be sending config to ', str(client))
         send((SEND_CONFIG, config), to=client)
         logging.info("Olympus has sent config to client: "+ str(client))
 

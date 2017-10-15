@@ -7,6 +7,7 @@ import uuid
 import time
 import logging
 import os
+import time
 #messages
 
 GET_CONFIG = 'get_config'
@@ -26,6 +27,7 @@ class Client(process):
         self.replica_keys = {}
         self.request_timeout = 10
         self.head = None
+        self.tail = None
         self.replicas =[]
         self.T = 3
 
@@ -59,20 +61,20 @@ class Client(process):
         operation_set = []
         for work in workload_list:
             operation_set.append(work)
-        return operation_set
+        return operation_set[:-1]
 
     def validate_result_proof(replica_response):
         '''
             We check if atleast t+1 replicas have verfied or not
         '''
-        result, result_proof = replica_response
+        result, result_proof, status = replica_response
         correct_replica = 0
         result_state_json = json.dumps(result).encode('utf-8')
         hashed_result = SHA256.new(result_state_json).hexdigest()
 
         for result_statement in result_proof:
             signature, statement, replica_id = result_statement
-            _, result_hash = statement
+            _, result_hash, status = statement  # ('result', result_hash, status)
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
             public_key = self.replica_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
@@ -80,8 +82,10 @@ class Client(process):
                     correct_replica += 1
 
         if correct_replica >= self.T + 1:
+            print(status)
             return True
         return False
+
 
     def retransmission_request(payload):
         for replica in self.replicas:
@@ -90,7 +94,6 @@ class Client(process):
         if await(some(received(('result', finale_result)))):
             if validate_result_proof(finale_result):
                 self.request_number += 1
-                print('--------OK-----------')
             else:
                 print('Invalid Result Proof')
 
@@ -104,27 +107,36 @@ class Client(process):
 
     def make_operation_request():
         workload = self.config['workload']
-        #workload = config_handler.pseudorandom(10, 5)
         operation_set = parse_workload(workload)
-        payload = craft_operation_payload(operation_set[0])
-        send(('please_work', payload), to=head)
-        if await(some(received(('result', finale_result)))):
-            if validate_result_proof(finale_result):
-                self.request_number+=1
-                print('OK')
-            else:
-                print('Invalid result proof')
-                # start over
-        elif timeout(self.request_timeout):
-            print('TIMEOUT HAS EXPIRED')
-            retransmission_request(payload)
+        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')"]
+        for oprn in operation_set:
+            payload = craft_operation_payload(oprn)
+            send(('please_work', payload), to=head)
+            if await(some(received(('result', finale_result)))):
+                # if validate_result_proof(finale_result):
+                #     self.request_number+=1
+                # else:
+                #     print('Invalid result proof')
+                #     # start over
+                pass
+            elif timeout(self.request_timeout):
+                print('TIMEOUT HAS EXPIRED')
+                retransmission_request(payload)
+
+    def receive(msg=('result', something), from_=c):
+        if validate_result_proof(something):
+            self.request_number += 1
+        else:
+            print('Invalid result_proof')
+
 
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
-        self.request_timeout = 10 #self.config['client_timeout']
+        self.request_timeout = self.config['client_timeout']
         self.head = self.config['head_node']
-        self.T = 1 #int(self.config['t'])
+        self.tail = self.config['tail_node']
+        self.T = int(self.config['t'])
         self.replicas = self.config['replicas']
         build_replica_keys()
         make_operation_request()
@@ -142,6 +154,7 @@ class Client(process):
         logging.info("Client running")
         print('Client running')
         start_over()
+        await(False)
         #self.config = request_config_from_olympus()
         #make_operation_request()
         #client_request()

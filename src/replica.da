@@ -74,6 +74,7 @@ class Replica(process):
         key = params['key']
         value = params['value']
         self.running_state[key] = value
+        return 'OK'
 
 
     def _append(params):
@@ -82,12 +83,15 @@ class Replica(process):
         if key in self.running_state:
             early_value = self.running_state[key]
             self.running_state[key] = early_value + new_value
+            return 'OK'
+        else:
+            return 'fail'
 
 
     def _get(key):
         if key in self.running_state:
             return self.running_state[key]
-        return None
+        return 'fail'
 
 
     def _slice(params):
@@ -97,6 +101,8 @@ class Replica(process):
             start, end = map(int, value.split(':'))
             early_value = self.running_state[key]
             self.running_state[key] = early_value[start: end]
+        else:
+            return 'fail'
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../logs/')
@@ -129,16 +135,16 @@ class Replica(process):
         return SHA256.new(running_state_json).hexdigest()
 
 
-    def generate_result_statement(result_hash):
-        statement = ('result', result_hash)
+    def generate_result_statement(result_hash, status):
+        statement = ('result', result_hash, status)  # adds status also
         return statement
 
 
-    def sign_result_statement(result_statement):
+    def sign_result_statement(result_statement):  # ('result', result_hash, status)
         result_stm = json.dumps(result_statement).encode('utf-8')
         result_statement_hash = SHA256.new(result_stm).digest()
         signature = self.passport.sign(result_statement_hash, '')
-        return (signature, result_statement, self.unique_id)
+        return (signature, result_statement, self.unique_id)  # TODO: add the response_status here
 
 
     def add_to_result_proof(signed_result_proof):
@@ -181,17 +187,17 @@ class Replica(process):
         '''
         opr = operation['opr']
         payload = operation['payload']
-        if opr == 'put' or opr =='append' or opr == 'slice':
-            self.operations_dispatcher[opr](payload)
-        elif opr == 'get':
-            pass # TODO: handle get
+        if opr == 'put' or opr =='append' or opr == 'slice' or opr == 'get':
+            status = self.operations_dispatcher[opr](payload)
+            return status
+        return 'fail'
 
 
     def handle_operation(operation, client_info):
         if self.isHead:
             update_current_slot_number()
-            perform_operation(operation)
-            generate_result_proof()
+            status = perform_operation(operation)
+            generate_result_proof(status)
             generate_order_proof(operation)
             update_history(self.current_slot, operation, self.order_proof)
             client_info_checksum = SHA256.new(json.dumps(client_info).encode('utf-8')).hexdigest()
@@ -200,10 +206,10 @@ class Replica(process):
             dispatch_shuttle_message(shuttle_msg)
 
 
-    def generate_result_proof():
+    def generate_result_proof(status):
         #_put(('movie', 'Bangalore Days'))
         result_hash = compute_running_state_hash()
-        result_statement = generate_result_statement(result_hash)
+        result_statement = generate_result_statement(result_hash, status)
         signed_result_statement = sign_result_statement(result_statement)
         add_to_result_proof(signed_result_statement)
 
@@ -268,8 +274,8 @@ class Replica(process):
         #print(self, result_proof_list)
         hashed_running_state = compute_running_state_hash()
         for result_statement in result_proof_list:
-            signature, statement, replica_id = result_statement
-            _, result_hash = statement
+            signature, statement, replica_id = result_statement  # (signature, ('result', result_hash, status), replica_id)
+            _, result_hash, _ = statement
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()  # for validating if the correct sender has sent the message 
             public_key = self.public_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
@@ -301,23 +307,25 @@ class Replica(process):
             if order_proof_is_valid:
                 operation = shuttle_msg[SHUTTLE_OPERATION]
                 update_current_slot_number()
-                perform_operation(operation)
+                status = perform_operation(operation)
                 result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
                 if check_result_proof_validity(result_proof_shuttle):
                     generate_order_proof(operation)
                     populate_order_proof(order_proof_shuttle)
-                    generate_result_proof()
+                    generate_result_proof(status)
                     populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation, self.order_proof)
                     checksum = shuttle_msg[CHECKSUM]
                     wait_for_result_shuttle(checksum)
                     shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum)
                     if self.isTail:
+                        print('At the taillll the status is ', status, ' for operation ', operation)
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
                         # Send message back to client
-                        send(('result', (self.running_state, self.result_proof)), to=client)
-                        print('It arrived at tail', self.running_state)
+                        print(self.result_proof, status)
+                        send(('result', (self.running_state, self.result_proof, status)), to=client)
+                        print('It arrived at tail', self.running_state, status)
                         #logging.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         #time.sleep(10)
@@ -337,7 +345,7 @@ class Replica(process):
         result_digest = None
         for result_statement in complete_result_proof:
             signature, statement, replica_id = result_statement
-            _, result_hash = statement
+            _, result_hash, _ = statement  # ('result', result_hash, status)
             if result_digest is None:
                 result_digest = result_hash
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()  # for validating if the correct sender has sent the message 

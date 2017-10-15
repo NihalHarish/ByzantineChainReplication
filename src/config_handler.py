@@ -39,13 +39,13 @@ def load_config(config_file='config.csv'):
     return test_cases
 
 def __generate_pseudo_random_workload(seed, size):
-    operation_list = ['put', 'slice', 'append']
+    operation_list = ['put', 'append', 'get', 'slice']
     current_key_set = ['start']
     rw = RandomWords()
     random_workload = []
     workload = ""
 
-    random.seed(seed) 
+    random.seed(seed)
 
     for x in range(size):
         random_word = rw.random_word()
@@ -59,7 +59,7 @@ def __generate_pseudo_random_workload(seed, size):
             workload += "append('" + random.choice(current_key_set) + "', '" + random_word + "'); "
         elif random_operation == 'slice':
             workload += "slice('" + random.choice(current_key_set) + "', '" + str(random.randint(0, 10)) + ":" + str(random.randint(0,10)) + "'); "
-    
+
     return workload
 
 def pseudorandom(seed, size):

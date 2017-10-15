@@ -15,6 +15,7 @@ def main():
     else:
         test_case = options.test_case
 
+    config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
     client = new(Client, at='ClientNode')
     client_list = list(client)
