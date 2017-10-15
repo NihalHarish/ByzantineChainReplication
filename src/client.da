@@ -5,6 +5,8 @@ import json
 import re
 import uuid
 import time
+import logging
+import os
 #messages
 
 GET_CONFIG = 'get_config'
@@ -28,10 +30,12 @@ class Client(process):
         self.T = 3
 
     def request_config_from_olympus():
+        print('Request for config')
+        logging.info("Client has requested for config from olympus: " + str(olympus))
         send((GET_CONFIG,), to=self.olympus)
-        print('Client is about to await')
+        logging.info('Client is waiting for a response from olympus: ' +str(olympus))
         await(some(received((CONFIG_RECEIVED, config))))
-        print("Client has received config: ", config)
+        logging.info("Client has received the config: ", config)
         return config
 
     def craft_operation_payload(operation):
@@ -118,18 +122,24 @@ class Client(process):
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
-        self.request_timeout = self.config['client_timeout']
+        self.request_timeout = 10 #self.config['client_timeout']
         self.head = self.config['head_node']
-        self.T = int(self.config['t'])
+        self.T = 1 #int(self.config['t'])
         self.replicas = self.config['replicas']
         build_replica_keys()
         make_operation_request()
+
+    def init_logger():
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs')
+        logging.basicConfig(filename=os.path.join(logging_directory, 'client.log'), filemode='w', level=logging.DEBUG)
 
     def build_replica_keys():
         for replica_id, public_key in self.config['replica_keys'].items():
             self.replica_keys[replica_id] = RSA.importKey(public_key)
 
     def run():
+        init_logger()
+        logging.info("Client running")
         print('Client running')
         start_over()
         #self.config = request_config_from_olympus()
