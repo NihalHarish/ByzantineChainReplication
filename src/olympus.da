@@ -2,6 +2,7 @@ from Crypto.PublicKey import RSA
 from Crypto import Random
 
 import uuid
+import re
 
 from replica import Replica
 import message_type
@@ -13,13 +14,13 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client: instance, test_case: str):
+    def setup(client_list: instance, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}    #TODO: Change variable name??
         self.replica_list = []
         self.head_node = None
-        self.client = client
+        self.client_list = client_list
         self.config = {}
         self.test_case = test_case
 
@@ -46,17 +47,34 @@ class Olympus(process):
             key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client, self.head_node))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node))
         start(replicas)
         self.replica_list = replicas
+
+    def parse_workload(workload):
+        match = re.match('^[^\(]+', workload)
+        if match == 'pseudorandom':
+            seed, size = key, value = re.search('\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            workload = config_handler.pseudorandom(seed, size)
+        return workload
+
+    def craft_client_config(client):
+        client_index = self.client_list.index(client)
+        config = config_handler.load_config()[test_case]
+        client_config = {}
+        client_config['client_timeout'] = config['client_timeout']
+        client_config['workload']       = parse_workload(self.config['workload'][client_index])
+        client_config['replica_list']   = self.replica_list
+        client_config['head_node']      = self.head_node
+        client_config['replica_keys']   = self.replicas_key_pairs
+        client_config['replicas']       = self.replica_list
+        client_config['t']              = config['t']
+        return client_config
 
 
     def receive(msg=(GET_CONFIG, ), from_=client):
         print("Olympus has received config request from client: ", client)
-        config['replica_list'] = self.replica_list
-        config['head_node'] = self.head_node
-        config['replica_keys'] = self.replicas_key_pairs
-        config['replicas'] = self.replica_list
+        config = craft_client_config(client)
         send((SEND_CONFIG, config), to=client)
         print("Olympus has sent config to client: ", client)
 

@@ -99,8 +99,8 @@ class Client(process):
 
 
     def make_operation_request():
-        #workload = self.config['workload'][1]
-        workload = config_handler.pseudorandom(10, 5)
+        workload = self.config['workload']
+        #workload = config_handler.pseudorandom(10, 5)
         operation_set = parse_workload(workload)
         payload = craft_operation_payload(operation_set[0])
         send(('please_work', payload), to=head)
