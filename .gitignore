@@ -2,4 +2,4 @@
 src/__pycache__/
 *.py
 *.swp
-logs/
+logs/*
