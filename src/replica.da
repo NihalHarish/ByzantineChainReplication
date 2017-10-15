@@ -3,6 +3,8 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto import Random
 import time
+import logging
+import os
 
 # Replica States
 REPLICA_PENDING = 'PENDING'
@@ -56,6 +58,7 @@ class Replica(process):
         _build_key_chain(keychain)
         self.client = client
         self.head_replica = head
+        self.logger = None
 
 
     def _build_key_chain(keychain):
@@ -95,19 +98,25 @@ class Replica(process):
             early_value = self.running_state[key]
             self.running_state[key] = early_value[start: end]
 
+    def init_logger():
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../logs/')
+        logger = logging.getLogger(os.path.join(logging_directory, 'replica_{0}'.format(unique_id)))
+        logger.setLevel(logging.INFO)
+        fh = logging.FileHandler(os.path.join(logging_directory, 'replica_{0}.log'.format(unique_id)))
+        fh.setLevel(logging.INFO)
+        #ch = logging.StreamHandler()
+        #ch.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        #ch.setFormatter(formatter)
+        fh.setFormatter(formatter)
+        #logger.addHandler(ch)
+        logger.addHandler(fh)
 
     def run():
-        #test_dict_object()
-        #if self.isHead:
-        #    operation =  {}
-        #    operation['opr'] = 'put'
-        #    operation['payload'] = {}
-        #    operation['payload']['key'] = 'movie'
-        #    operation['payload']['value'] = 'Bangalore Days'
-        #    client_id = 1
-        #    client_request_id = 1
-        #    client_info = (client_id, client_request_id)
-        #    handle_operation(operation, client_info)
+        init_logger()
+        #logging.info("Replica is running")
+        logger.info('REPLICA IS RUNNING DUDE')
+        print("REPLICA IS RUNNING")
         await(False)
 
 
@@ -218,6 +227,9 @@ class Replica(process):
 
     def dispatch_shuttle_message(shuttle_message):
         print(self, 'sending shuttle message to ', next_replica)
+        #logging.info(str(self)+ ' sending shuttle message to ' +  str(next_replica))
+        #logging.info('dispatch shuttle message')
+        logger.info('dispatch shuttle message')
         send((SHUTTLE, shuttle_message), to=next_replica)
         await(False) #  TODO: This needs to wait till it receives a complete result proof from its next replica
 
@@ -306,6 +318,8 @@ class Replica(process):
                         # Send message back to client
                         send(('result', (self.running_state, self.result_proof)), to=client)
                         print('It arrived at tail', self.running_state)
+                        #logging.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
+                        logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         #time.sleep(10)
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
                     else:
@@ -336,18 +350,14 @@ class Replica(process):
 
     def receive(msg=('result_shuttle', payload), from_=next_replica):
         print(self, ': Receiving result shuttle')
+        #logging.info(str(self) + ': Receiving result shuttle')
+        logger.info(str(self) + ': Receiving result shuttle')
         complete_result_proof = payload[SHUTTLE_RESULT_PROOF]
         if validate_complete_result_shuttle(complete_result_proof):
             result_shuttle = payload
             checksum = result_shuttle[CHECKSUM]
             self.result_shuttle_cache[checksum] = result_shuttle  # used during retransmission scenario
             del self.waiting_for_result_shuttle[checksum]
-            '''
-            if checksum in self.retransmission:
-                self.retransmission.remove(checksum)
-                client_result_message = generate_client_result_message(result_shuttle)
-                print('Client receives this message on retrasnmission ', client_result_message)
-            '''
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
@@ -411,6 +421,7 @@ class Replica(process):
         _get('movie')
         _slice(('movie', '0:2'))
         print(self.running_state)
+
 
 
 def main():

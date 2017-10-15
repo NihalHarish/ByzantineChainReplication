@@ -3,11 +3,13 @@ from Crypto import Random
 
 import uuid
 import re
+import logging
 
 from replica import Replica
 import message_type
 import config_handler
 
+import os
 
 GET_CONFIG = 'get_config'
 SEND_CONFIG = 'take_config'
@@ -32,6 +34,7 @@ class Olympus(process):
         return (key, self.replicas_key_pairs)
 
     def init_replicas(number):
+        logging.info("Staring replica init for t = "+ str(number)) 
         replicas = list(new(Replica, num= number))
         replica_ids = [uuid.uuid4().hex for replica in replicas]
         keys  = [generate_replica_key_pair(replica_id) for replica_id in replica_ids]
@@ -49,13 +52,17 @@ class Olympus(process):
                 self.head_node = replica
             setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node))
         start(replicas)
+        logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
 
     def parse_workload(workload):
-        match = re.match('^[^\(]+', workload)
+        match = re.match('^[^\(]+', workload).group()
         if match == 'pseudorandom':
-            seed, size = key, value = re.search('\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed, size = re.search('\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed  = int(seed)
+            size  = int(size)
             workload = config_handler.pseudorandom(seed, size)
+            print('Workload: ', workload)
         return workload
 
     def craft_client_config(client):
@@ -76,9 +83,16 @@ class Olympus(process):
         print("Olympus has received config request from client: ", client)
         config = craft_client_config(client)
         send((SEND_CONFIG, config), to=client)
-        print("Olympus has sent config to client: ", client)
+        logging.info("Olympus has sent config to client: "+ str(client))
+
+    def init_logger():
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/')
+        logging.basicConfig(filename=os.path.join(logging_directory, 'olympus.log'), filemode='w', level=logging.INFO)
+
 
     def run():
+        init_logger()
+        logging.info("Olympus has started")
         self.config = config_handler.load_config()[self.test_case]
         t = self.config['t']
         t = 2*t + 1
@@ -86,8 +100,3 @@ class Olympus(process):
         init_replicas(t)
         print("Olympus Running")
         await(False)
-
-#def main():
-#    olympus = new(Olympus, args=())
-#    start(olympus)
-

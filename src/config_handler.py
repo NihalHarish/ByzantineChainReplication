@@ -39,7 +39,7 @@ def load_config(config_file='config.csv'):
     return test_cases
 
 def __generate_pseudo_random_workload(seed, size):
-    operation_list = ['put', 'get', 'slice', 'append']
+    operation_list = ['put', 'slice', 'append']
     current_key_set = ['start']
     rw = RandomWords()
     random_workload = []
