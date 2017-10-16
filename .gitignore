@@ -2,8 +2,5 @@
 src/__pycache__/
 *.py
 *.swp
-<<<<<<< HEAD
 *.log
-=======
 logs/*
->>>>>>> logging
