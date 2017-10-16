@@ -51,7 +51,7 @@ class Client(process):
             key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
         operation_payload['payload']['key']   = key.strip() if key else None
-        operation_payload['payload']['value'] = value.strip()
+        operation_payload['payload']['value'] = value
         operation_payload['client_id'] = self.client_id
         operation_payload['request_number'] = self.request_number
         return operation_payload
@@ -112,7 +112,7 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')", "get('lights')"]
+        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', ' combat')", "get('lights')"]
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             send(('please_work', payload), to=head)
