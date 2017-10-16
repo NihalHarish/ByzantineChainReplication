@@ -44,10 +44,12 @@ class Client(process):
         operation_payload = {}
         print('Operation: ', operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group()
-        if operation_payload == 'get':
+        print(operation_payload)
+        if operation_payload['opr'] == ' get':
             value = re.search('\(([^)]+)\)', work).group()[1:-1].replace("'","")
             key = None
-        key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
+        else:
+            key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
         operation_payload['payload']['key']   = key
         operation_payload['payload']['value'] = value
@@ -111,7 +113,7 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')"]
+        #operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')"]
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             send(('please_work', payload), to=head)
