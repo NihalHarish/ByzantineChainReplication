@@ -50,7 +50,7 @@ class Client(process):
         else:
             key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
-        operation_payload['payload']['key']   = key.strip()
+        operation_payload['payload']['key']   = key.strip() if key else None
         operation_payload['payload']['value'] = value.strip()
         operation_payload['client_id'] = self.client_id
         operation_payload['request_number'] = self.request_number
