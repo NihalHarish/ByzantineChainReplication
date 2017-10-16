@@ -44,6 +44,9 @@ class Client(process):
         operation_payload = {}
         print('Operation: ', operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group()
+        if operation_payload == 'get':
+            value = re.search('\(([^)]+)\)', work).group()[1:-1].replace("'","")
+            key = None
         key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
         operation_payload['payload']['key']   = key
