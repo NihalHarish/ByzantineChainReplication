@@ -43,14 +43,15 @@ class Client(process):
     def craft_operation_payload(operation):
         operation_payload = {}
         print('Operation: ', operation)
-        operation_payload['opr'] = re.match('^[^\(]+', operation).group()
-        if operation_payload == 'get':
+        operation_payload['opr'] = re.match('^[^\(]+', operation).group().strip()
+        if operation_payload['opr'] == 'get':
             value = re.search('\(([^)]+)\)', work).group()[1:-1].replace("'","")
             key = None
-        key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
+        else:
+            key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
-        operation_payload['payload']['key']   = key
-        operation_payload['payload']['value'] = value
+        operation_payload['payload']['key']   = key.strip()
+        operation_payload['payload']['value'] = value.strip()
         operation_payload['client_id'] = self.client_id
         operation_payload['request_number'] = self.request_number
         return operation_payload
