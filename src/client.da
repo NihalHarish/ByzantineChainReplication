@@ -19,11 +19,11 @@ class Client(process):
     #def setup(client_id: str, key: instance, replica_keychain: dict, olympus_key: instance, request_number: int, timer_request: instance, time_retransmission: instance, config_file: dict, operation_set: set):
     #    pass
 
-    def setup(olympus: instance):
+    def setup(olympus: instance, unique_id):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
-        self.client_id = uuid.uuid4().hex
+        self.client_id = unique_id # uuid.uuid4().hex
         self.replica_keys = {}
         self.request_timeout = 10
         self.head = None
@@ -112,7 +112,17 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')", "get('lights')"]
+        operation_set = [
+                "append('start', 'countermeasure')",
+                "append('start', 'saying')",
+                "put('lights', 'remedy')",
+                "append('lights', ' combat')",
+                "get('lights')",
+                "append('lights', ' awesome')",
+                "get('lights')",
+                "put('lights', 'over')",
+                "get('lights')"
+            ]
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             send(('please_work', payload), to=head)

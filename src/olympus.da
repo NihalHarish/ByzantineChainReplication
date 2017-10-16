@@ -16,12 +16,13 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client_list: instance, test_case: str):
+    def setup(client_dict: instance, client_list: instance, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}    #TODO: Change variable name??
         self.replica_list = []
         self.head_node = None
+        self.client_dict = client_dict
         self.client_list = client_list
         self.config = {}
         self.test_case = test_case
@@ -53,7 +54,7 @@ class Olympus(process):
                 self.head_node = replica
             if isTail:
                 self.tail_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_dict, self.head_node))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
