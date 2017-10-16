@@ -112,7 +112,7 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        #operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')"]
+        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', 'combat')", "get('lights')"]
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             send(('please_work', payload), to=head)

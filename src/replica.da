@@ -88,7 +88,8 @@ class Replica(process):
             return 'fail'
 
 
-    def _get(key):
+    def _get(params):
+        key = params['value']
         if key in self.running_state:
             return self.running_state[key]
         return 'fail'
@@ -188,6 +189,7 @@ class Replica(process):
         opr = operation['opr']
         payload = operation['payload']
         if opr == 'put' or opr =='append' or opr == 'slice' or opr == 'get':
+            print(payload)
             status = self.operations_dispatcher[opr](payload)
             return status
         return 'fail'
