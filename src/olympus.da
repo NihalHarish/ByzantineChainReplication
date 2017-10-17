@@ -54,7 +54,7 @@ class Olympus(process):
                 self.head_node = replica
             if isTail:
                 self.tail_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_dict, self.head_node))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas

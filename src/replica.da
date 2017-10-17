@@ -204,9 +204,10 @@ class Replica(process):
             generate_result_proof(status)
             generate_order_proof(operation)
             update_history(self.current_slot, operation, self.order_proof)
+            client_id = client_info[0]
             client_info_checksum = SHA256.new(json.dumps(client_info).encode('utf-8')).hexdigest()
             wait_for_result_shuttle(client_info_checksum)
-            shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, client_info_checksum)
+            shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, client_info_checksum, client_id)
             dispatch_shuttle_message(shuttle_msg)
 
 
@@ -320,14 +321,15 @@ class Replica(process):
                     populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation, self.order_proof)
                     checksum = shuttle_msg[CHECKSUM]
+                    client_id = shuttle_msg[CLIENT_ID]
                     wait_for_result_shuttle(checksum)
-                    shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum)
+                    shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum, client_id)
                     if self.isTail:
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
                         result_shuttle_msg[STATUS] = status
                         # Send message back to client
-                        send(('result', (self.running_state, self.result_proof, status)), to=client)
+                        send(('result', (self.running_state, self.result_proof, status)), to=self.clients[client_id])
                         #logging.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         #time.sleep(10)
@@ -433,14 +435,14 @@ class Replica(process):
         return json.dumps((final_result, complete_result_proof)).encode('utf-8')
 
 
-    def generate_shuttle_message(result_proof, order_proof, slot, operation, checksum):
+    def generate_shuttle_message(result_proof, order_proof, slot, operation, checksum, client_id):
         shuttle_msg = {}
         shuttle_msg[SHUTTLE_RESULT_PROOF] = result_proof
         shuttle_msg[SHUTTLE_ORDER_PROOF] = order_proof
         shuttle_msg[SHUTTLE_SLOT] = slot
         shuttle_msg[SHUTTLE_OPERATION] = operation
         shuttle_msg[CHECKSUM] = checksum
-        shuttle_msg[CLIENT_ID] = 23
+        shuttle_msg[CLIENT_ID] = client_id
         return shuttle_msg
 
 
