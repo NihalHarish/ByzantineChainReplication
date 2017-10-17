@@ -23,12 +23,15 @@ SHUTTLE = 'shuttle'
 
 CHECKSUM = 'checksum'
 CLIENT_ID = 'client_id'
+CLIENT_REQUEST_ID = 'client_request_id'
 
 RESULT_SHUTTLE = 'fuckthisshit'
 RESULT = 'result'
 
+STATUS = 'status'
+
 class Replica(process):
-    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, client: instance, head: Replica):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, client: instance, head: Replica, clients: dict, timeout_val: int):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -46,7 +49,7 @@ class Replica(process):
         self.isTail = isTail
         self.current_slot = 0
         self.config_number = 1
-        self.retransmission = []
+        self.retransmission = {}
         self.waiting_for_result_shuttle = {}
         self.passport = key
         self.operations_dispatcher = {
@@ -59,6 +62,9 @@ class Replica(process):
         self.client = client
         self.head_replica = head
         self.logger = None
+        self.clients = clients  # dict: key: client uuid, value: client object
+        self.timeout_val = timeout_val
+        print (self, ' has a time out value of ', self.timeout_val)
 
 
     def _build_key_chain(keychain):
@@ -99,9 +105,22 @@ class Replica(process):
         key = params['key']
         value = params['value']
         if key in self.running_state:
-            start, end = map(int, value.split(':'))
             early_value = self.running_state[key]
-            self.running_state[key] = early_value[start: end]
+            start, end = value.split(':')
+            if start == '' and end != '':
+                end = int(end)
+                self.running_state[key] = early_value[: end]
+            elif start != '' and end == '':
+                start = int(start)
+                self.running_state[key] = early_value[start:]
+            else:
+                start =  int(start)
+                end = int(end)
+                if end > start:
+                    self.running_state[key] = early_value[start:end]
+                else:
+                    return 'fail'
+            return 'OK'
         else:
             return 'fail'
 
@@ -189,7 +208,6 @@ class Replica(process):
         opr = operation['opr']
         payload = operation['payload']
         if opr == 'put' or opr =='append' or opr == 'slice' or opr == 'get':
-            print(payload)
             status = self.operations_dispatcher[opr](payload)
             return status
         return 'fail'
@@ -202,9 +220,10 @@ class Replica(process):
             generate_result_proof(status)
             generate_order_proof(operation)
             update_history(self.current_slot, operation, self.order_proof)
+            client_id, client_request_id = client_info
             client_info_checksum = SHA256.new(json.dumps(client_info).encode('utf-8')).hexdigest()
             wait_for_result_shuttle(client_info_checksum)
-            shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, client_info_checksum)
+            shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, client_info_checksum, client_id, client_request_id)
             dispatch_shuttle_message(shuttle_msg)
 
 
@@ -318,19 +337,19 @@ class Replica(process):
                     populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation, self.order_proof)
                     checksum = shuttle_msg[CHECKSUM]
+                    client_id = shuttle_msg[CLIENT_ID]
+                    client_request_id = shuttle_msg[CLIENT_REQUEST_ID]
                     wait_for_result_shuttle(checksum)
-                    shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum)
+                    shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum, client_id, client_request_id)
                     if self.isTail:
-                        print('At the taillll the status is ', status, ' for operation ', operation)
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
+                        result_shuttle_msg[STATUS] = status
+                        self.result_shuttle_cache[checksum] = result_shuttle_msg  # used during retransmission scenario
                         # Send message back to client
-                        print(self.result_proof, status)
-                        send(('result', (self.running_state, self.result_proof, status)), to=client)
-                        print('It arrived at tail', self.running_state, status)
-                        #logging.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
+                        print('arrived at the tail and sending to ', self.clients[client_id], ' answer ', self.running_state)
+                        send(('result', (self.running_state, self.result_proof, status, client_request_id)), to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
-                        #time.sleep(10)
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
                     else:
                         dispatch_shuttle_message(shuttle_msg)
@@ -369,6 +388,16 @@ class Replica(process):
             self.result_shuttle_cache[checksum] = result_shuttle  # used during retransmission scenario
             del self.waiting_for_result_shuttle[checksum]
             # TODO: If the checksum is present in retransmission: send the result_shuttle to the client directly
+            if checksum in self.retransmission:
+                print('the checksum is present in retransmission, will have to send the message to client')
+                client_id = self.retransmission[checksum]
+                reply_to_client = self.clients[client_id]
+                proof = result_shuttle[SHUTTLE_RESULT_PROOF]
+                res = result_shuttle[RESULT]
+                status = result_shuttle[STATUS]
+                client_request_id = result_shuttle[CLIENT_REQUEST_ID]
+                send(('result', (res, proof, status, client_request_id)), to=reply_to_client)
+                del self.retransmission[checksum]
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
@@ -376,27 +405,40 @@ class Replica(process):
 
 
     def receive(msg=('retransmission', retrans_payload), from_=c):
-        print('Received retransmission request from client')
+        print('Received retransmission request')
         client_info = (retrans_payload['client_id'], retrans_payload['request_number'])
+        client_id = retrans_payload['client_id']
         checksum = SHA256.new(json.dumps(client_info).encode('utf-8')).hexdigest()
 
         if checksum not in self.retransmission:
-            self.retransmission.append(checksum)
+            # self.retransmission.append(checksum)
+            self.retransmission[checksum] = client_info[0]  # TODO: Sorry, add id of the client to the checksum
 
         if self.mode == REPLICA_IMMUTABLE:
-            send(('error','immutable'), to=c)
-        elif checksum in self.result_shuttle_cache:
-            print('sending data to client from its cache')
+            # send(('error','immutable'), to=c)  # TODO: make sure that error message is sent to the client only
+            reply_to_client = self.clients[client_id]
+            send(('error', 'immutable'), to=reply_to_client)
+
+        elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
+            print(self, 'sending data to client from its cache', checksum)
             proof = self.result_shuttle_cache[checksum][SHUTTLE_RESULT_PROOF]
             res = self.result_shuttle_cache[checksum][RESULT]
-            send(('result', (res, proof)), to=c)
-        else:                                           # TODO: This part is completely messed up.. especially about cancelling timers
+            status = self.result_shuttle_cache[checksum][STATUS]
+            client_request_id = self.result_shuttle_cache[checksum][CLIENT_REQUEST_ID]
+            reply_to_client = self.clients[client_id]
+            print('send this data to client ', (res, status))
+            send(('result', (res, proof, status, client_request_id)), to=reply_to_client)  # TODO: send status to the client
+            del self.retransmission[checksum]  # after sending the result, remove the entry from retransmission
+            # TODO: Problem: Head might receive this from replicas as well.. so it should make sure, that the head delivers the message to client
+        else:                              # TODO: This part is completely messed up.. especially about cancelling timers
             if not isHead:
+                print (self, 'good lord, checksum is not present ', checksum, self.isTail)
                 print('forwarding request to the head')
                 send(('retransmission', retrans_payload), to=head_replica)
                 if await(some(received(('result_shuttle', payload)))):
                     print('Retransmission request being processed @nonhead')
-                elif timeout(30):
+                elif timeout(self.timeout_val):
+                    print ('this happens at @nonhead')
                     print('Have to send reconfigure message to Olympus')
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
@@ -404,7 +446,8 @@ class Replica(process):
                     handle_operation(retrans_payload, client_info)
                 if await(some(received(('result_shuttle', payload)))):
                     print('Retransmission request being processed @head')
-                elif timeout(30):
+                elif timeout(self.timeout_val):
+                    print ('this happens at @head')
                     print('Have to send reconfigure message to Olympus')
 
 
@@ -415,14 +458,15 @@ class Replica(process):
         return json.dumps((final_result, complete_result_proof)).encode('utf-8')
 
 
-    def generate_shuttle_message(result_proof, order_proof, slot, operation, checksum):
+    def generate_shuttle_message(result_proof, order_proof, slot, operation, checksum, client_id, request_id):
         shuttle_msg = {}
         shuttle_msg[SHUTTLE_RESULT_PROOF] = result_proof
         shuttle_msg[SHUTTLE_ORDER_PROOF] = order_proof
         shuttle_msg[SHUTTLE_SLOT] = slot
         shuttle_msg[SHUTTLE_OPERATION] = operation
         shuttle_msg[CHECKSUM] = checksum
-        shuttle_msg[CLIENT_ID] = 23
+        shuttle_msg[CLIENT_ID] = client_id
+        shuttle_msg[CLIENT_REQUEST_ID] = request_id
         return shuttle_msg
 
 
@@ -461,10 +505,12 @@ def main():
     keychain4 = {unique_id_1: key1.publickey().exportKey(), unique_id_2: key2.publickey().exportKey(), unique_id_3: key3.publickey().exportKey(), unique_id_4: key4.publickey().exportKey()}
 
 
-    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1))
-    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1))
-    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1))
-    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1))
+    client_dict = {}
+
+    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1, client_dict, 10))
+    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1, client_dict, 10))
+    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1, client_dict, 10))
+    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1, client_dict, 10))
 
 
     start(replica1)

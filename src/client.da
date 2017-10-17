@@ -19,11 +19,11 @@ class Client(process):
     #def setup(client_id: str, key: instance, replica_keychain: dict, olympus_key: instance, request_number: int, timer_request: instance, time_retransmission: instance, config_file: dict, operation_set: set):
     #    pass
 
-    def setup(olympus: instance):
+    def setup(olympus: instance, unique_id):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
-        self.client_id = uuid.uuid4().hex
+        self.client_id = unique_id # uuid.uuid4().hex
         self.replica_keys = {}
         self.request_timeout = 10
         self.head = None
@@ -42,7 +42,7 @@ class Client(process):
 
     def craft_operation_payload(operation):
         operation_payload = {}
-        print('Operation: ', operation)
+        print('Operation: {0}'.format(self.request_number), operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
             value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'","")
@@ -71,20 +71,29 @@ class Client(process):
         '''
             We check if atleast t+1 replicas have verfied or not
         '''
-        result, result_proof, status = replica_response
+        result, result_proof, status, request_num = replica_response
         correct_replica = 0
-        result_state_json = json.dumps(result).encode('utf-8')
-        hashed_result = SHA256.new(result_state_json).hexdigest()
+        #result_state_json = json.dumps(result).encode('utf-8')
+        #hashed_result = SHA256.new(result_state_json).hexdigest()
+
+        # hashed_result = None
+        replica_correctness = {}
 
         for result_statement in result_proof:
             signature, statement, replica_id = result_statement
             _, result_hash, status = statement  # ('result', result_hash, status)
+            if result_hash not in replica_correctness:
+                replica_correctness[result_hash] = 1
+            # if hashed_result is None:
+            #    hashed_result = result_hash
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
             public_key = self.replica_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
-                if result_hash == hashed_result:
-                    correct_replica += 1
+                replica_correctness[result_hash] += 1  # trying to aggregate atleast t+1 consistent hashes
+                # if result_hash == hashed_result:
+                #    correct_replica += 1
 
+        correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
             print(status)
             return True
@@ -112,16 +121,13 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        operation_set = ["append('start', 'countermeasure')", "append('start', 'saying')", "put('lights', 'remedy')", "append('lights', ' combat')", "get('lights')"]
         for oprn in operation_set:
+            # time.sleep(5)
             payload = craft_operation_payload(oprn)
+            # print('sending payload ', payload)
             send(('please_work', payload), to=head)
-            if await(some(received(('result', finale_result)))):
-                # if validate_result_proof(finale_result):
-                #     self.request_number+=1
-                # else:
-                #     print('Invalid result proof')
-                #     # start over
+            req_id = self.request_number
+            if await(some(received(('result', finale_payload), from_=self.tail), has= finale_payload[-1] == req_id )):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
@@ -137,7 +143,7 @@ class Client(process):
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
-        self.request_timeout = self.config['client_timeout']
+        self.request_timeout = float(self.config['client_timeout'])
         self.head = self.config['head_node']
         self.tail = self.config['tail_node']
         self.T = int(self.config['t'])

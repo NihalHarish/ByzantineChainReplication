@@ -1,3 +1,4 @@
+import uuid
 from olympus import Olympus
 from client import Client
 
@@ -17,10 +18,28 @@ def main():
 
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
-    client = new(Client, at='ClientNode')
-    client_list = list(client)
-    setup(olympus, (client_list, test_case))
-    setup(client, (olympus,))
+
+    # client = new(Client, at='ClientNode')
+    # client_list = list(client)
+
+    new_clients = list(new(Client, num= 3, at='ClientNode')) # TODO: read from config
+    #num = 1
+    #for i in range(num):
+    #    new_clients.append(new(Client, num=1, at='ClientNode_{0}'.format(i+1)))
+
+    client_dict = {}
+    for i ,c in enumerate(new_clients):
+        unique_id = uuid.uuid4().hex
+        client_dict[unique_id] = c
+        setup(c, (olympus, unique_id))
+
+    # setup(olympus, (client_list, test_case))
+    # setup(client, (olympus,))
+
+    setup(olympus, (client_dict, new_clients, test_case))
+
+
     start(olympus)
     print('Worked till here')
-    start(client_list)
+    start(new_clients)
+    #start(client_list)
