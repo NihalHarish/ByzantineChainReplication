@@ -1,8 +1,14 @@
 import uuid
 from olympus import Olympus
 from client import Client
-
+from Crypto import Random
+from Crypto.PublicKey import RSA
 from optparse import OptionParser
+
+def generate_key_pair():
+    random_generator = Random.new().read
+    key = RSA.generate(1024, random_generator)
+    return key
 
 def main():
     option_parser = OptionParser()
@@ -19,27 +25,19 @@ def main():
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
 
-    # client = new(Client, at='ClientNode')
-    # client_list = list(client)
-
     new_clients = list(new(Client, num= 3, at='ClientNode')) # TODO: read from config
-    #num = 1
-    #for i in range(num):
-    #    new_clients.append(new(Client, num=1, at='ClientNode_{0}'.format(i+1)))
 
     client_dict = {}
+    client_keys = {}
     for i ,c in enumerate(new_clients):
         unique_id = uuid.uuid4().hex
         client_dict[unique_id] = c
-        setup(c, (olympus, unique_id))
+        crypt_key = generate_key_pair()
+        client_keys[unique_id] = crypt_key.publickey()
+        setup(c, (olympus, unique_id, crypt_key))
 
-    # setup(olympus, (client_list, test_case))
-    # setup(client, (olympus,))
 
-    setup(olympus, (client_dict, new_clients, test_case))
-
+    setup(olympus, (client_dict, new_clients, client_keys, test_case))
 
     start(olympus)
-    print('Worked till here')
     start(new_clients)
-    #start(client_list)

@@ -16,7 +16,7 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client_dict: instance, client_list: instance, test_case: str):
+    def setup(client_dict: instance, client_list: instance, client_keys: instace, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}    #TODO: Change variable name??
@@ -24,6 +24,7 @@ class Olympus(process):
         self.head_node = None
         self.client_dict = client_dict
         self.client_list = client_list
+        self.client_public_keys = client_keys
         self.config = {}
         self.test_case = test_case
         self.tail_node = None
@@ -57,7 +58,7 @@ class Olympus(process):
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
 
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val))
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
@@ -88,13 +89,20 @@ class Olympus(process):
         print('done crafting clients config!')
         return client_config
 
+    def validate_client(message):
+        signature, nonce, client_id =  message
+        public_key = self.client_public_keys[client_id]
+        if public_key.verify(nonce, signature):
+            return True
+        return False
 
-    def receive(msg=(GET_CONFIG, ), from_=client):
+    def receive(msg=(GET_CONFIG, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
-        config = craft_client_config(client)
-        print('Will be sending config to ', str(client))
-        send((SEND_CONFIG, config), to=client)
-        logging.info("Olympus has sent config to client: "+ str(client))
+        if validate_client(signed_message):
+            config = craft_client_config(client)
+            print('Will be sending config to ', str(client))
+            send((SEND_CONFIG, config), to=client)
+            logging.info("Olympus has sent config to client: "+ str(client))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/')

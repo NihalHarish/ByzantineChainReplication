@@ -1,6 +1,7 @@
 import config_handler
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
+import random
 import json
 import re
 import uuid
@@ -19,7 +20,7 @@ class Client(process):
     #def setup(client_id: str, key: instance, replica_keychain: dict, olympus_key: instance, request_number: int, timer_request: instance, time_retransmission: instance, config_file: dict, operation_set: set):
     #    pass
 
-    def setup(olympus: instance, unique_id):
+    def setup(olympus: instance, unique_id: str, crypt_key: instance):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
@@ -29,16 +30,24 @@ class Client(process):
         self.head = None
         self.tail = None
         self.replicas =[]
+        self.crypt_key = crypt_key
+        print('Client got key ', self.crypt_key)
         self.T = 3
 
     def request_config_from_olympus():
         print('Request for config')
         logging.info("Client has requested for config from olympus: " + str(olympus))
-        send((GET_CONFIG,), to=self.olympus)
+        signature = sign_message()
+        send((GET_CONFIG, signature), to=self.olympus)
         logging.info('Client is waiting for a response from olympus: ' +str(olympus))
         await(some(received((CONFIG_RECEIVED, config))))
         logging.info("Client has received the config: ", config)
         return config
+
+    def sign_message():
+        nonce = random.randint(1, 1000)
+        message = self.crypt_key.sign(nonce, '')
+        return (message, nonce, client_id)
 
     def craft_operation_payload(operation):
         operation_payload = {}
@@ -101,8 +110,9 @@ class Client(process):
 
 
     def retransmission_request(payload):
+        signature = sign_message()
         for replica in self.replicas:
-            send(('retransmission', payload), to=replica)
+            send(('retransmission', payload, signature), to=replica)
 
         if await(some(received(('result', finale_result)))):
             if validate_result_proof(finale_result):
@@ -122,10 +132,9 @@ class Client(process):
         workload = self.config['workload']
         operation_set = parse_workload(workload)
         for oprn in operation_set:
-            # time.sleep(5)
             payload = craft_operation_payload(oprn)
-            # print('sending payload ', payload)
-            send(('please_work', payload), to=head)
+            signature = sign_message()
+            send(('please_work', payload, signature), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload), from_=self.tail), has= finale_payload[-1] == req_id )):
                 pass
