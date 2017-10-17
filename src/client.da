@@ -73,12 +73,16 @@ class Client(process):
         '''
         result, result_proof, status, request_num = replica_response
         correct_replica = 0
-        result_state_json = json.dumps(result).encode('utf-8')
-        hashed_result = SHA256.new(result_state_json).hexdigest()
+        #result_state_json = json.dumps(result).encode('utf-8')
+        #hashed_result = SHA256.new(result_state_json).hexdigest()
+
+        hashed_result = None
 
         for result_statement in result_proof:
             signature, statement, replica_id = result_statement
             _, result_hash, status = statement  # ('result', result_hash, status)
+            if hashed_result is None:
+                hashed_result = result_hash
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
             public_key = self.replica_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
@@ -88,6 +92,8 @@ class Client(process):
         if correct_replica >= self.T + 1:
             print(status)
             return True
+        else:
+            print(result)
         return False
 
 
@@ -113,19 +119,61 @@ class Client(process):
         workload = self.config['workload']
         operation_set = parse_workload(workload)
         # operation_set = [
-        #         "append('start', 'countermeasure')",
-        #         "append('start', 'saying')",
-        #         "put('lights', 'remedy')",
-        #         "append('lights', ' combat')",
-        #         "get('lights')",
-        #         "append('lights', ' awesome')",
-        #         "get('lights')",
-        #         "put('lights', 'over')",
-        #         "get('lights')"
-        #     ]
+        #      "append('start', 'comfort')",
+        #      "append('start', 'methods')",
+        #      "get('start')",
+        #      "put('aim', 'stage')",
+        #      "append('aim', 'chairperson')",
+        #      "slice('aim', '3:1')",
+        #      "slice('start', '9:5')",
+        #      "put('walls', 'vacuums')",
+        #      "get('aim')",
+        #      "slice('walls', '2:0')",
+        #      "put('electrician', 'signalmen')",
+        #      "get('walls')",
+        #      "slice('aim', '0:7')",
+        #      "get('start')",
+        #      "get('start')",
+        #      "get('start')",
+        #      "slice('electrician', '0:1')",
+        #      "get('electrician')",
+        #      "slice('walls', '4:9')",
+        #      "append('electrician', 'interference')",
+        #      "append('electrician', 'hours')",
+        #      "append('start', 'intensities')",
+        #      "get('electrician')",
+        #      "append('walls', 'macro')",
+        #      "get('aim')",
+        #      "append('start', 'rocks')",
+        #      "put('homes', 'asterisk')",
+        #      "slice('homes', '4:3')",
+        #      "get('start')",
+        #      "get('walls')",
+        #      "append('electrician', 'pass')",
+        #      "slice('electrician', '10:3')",
+        #      "get('start')",
+        #      "slice('homes', '4:6')",
+        #      "slice('aim', '1:1')",
+        #      "put('sports', 'tenth')",
+        #      "slice('aim', '9:6')",
+        #      "slice('homes', '2:0')",
+        #      "append('homes', 'breasts')",
+        #      "get('start')",
+        #      "slice('homes', '3:4')",
+        #      "append('walls', 'preference')",
+        #      "put('measurement', 'centerlines')",
+        #      "append('measurement', 'debris')",
+        #      "slice('walls', '9:10')",
+        #      "get('measurement')",
+        #      "slice('start', '10:7')",
+        #      "get('measurement')",
+        #      "get('walls')",
+        #      "get('walls')"
+        # ]
         for oprn in operation_set:
+            # time.sleep(5)
             payload = craft_operation_payload(oprn)
-            print('sending payload ', payload)
+            # print('sending payload ', payload)
             send(('please_work', payload), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload), from_=self.tail), has= finale_payload[-1] == req_id )):

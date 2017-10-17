@@ -105,9 +105,22 @@ class Replica(process):
         key = params['key']
         value = params['value']
         if key in self.running_state:
-            start, end = map(int, value.split(':'))
             early_value = self.running_state[key]
-            self.running_state[key] = early_value[start: end]
+            start, end = value.split(':')
+            if start == '' and end != '':
+                end = int(end)
+                self.running_state[key] = early_value[: end]
+            elif start != '' and end == '':
+                start = int(start)
+                self.running_state[key] = early_value[start:]
+            else:
+                start =  int(start)
+                end = int(end)
+                if end > start:
+                    self.running_state[key] = early_value[start:end]
+                else:
+                    return 'fail'
+            return 'OK'
         else:
             return 'fail'
 
@@ -334,7 +347,7 @@ class Replica(process):
                         result_shuttle_msg[STATUS] = status
                         self.result_shuttle_cache[checksum] = result_shuttle_msg  # used during retransmission scenario
                         # Send message back to client
-                        print('arrived at the tail and sending to ', self.clients[client_id])
+                        print('arrived at the tail and sending to ', self.clients[client_id], ' answer ', self.running_state)
                         send(('result', (self.running_state, self.result_proof, status, client_request_id)), to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
