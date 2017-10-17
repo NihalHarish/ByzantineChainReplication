@@ -22,7 +22,7 @@ def main():
     # client = new(Client, at='ClientNode')
     # client_list = list(client)
 
-    new_clients = list(new(Client, num= 1, at='ClientNode')) # TODO: read from config
+    new_clients = list(new(Client, num= 3, at='ClientNode')) # TODO: read from config
     #num = 1
     #for i in range(num):
     #    new_clients.append(new(Client, num=1, at='ClientNode_{0}'.format(i+1)))

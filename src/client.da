@@ -42,7 +42,7 @@ class Client(process):
 
     def craft_operation_payload(operation):
         operation_payload = {}
-        print('Operation: ', operation)
+        print('Operation: {0}'.format(self.request_number), operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
             value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'","")
