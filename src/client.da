@@ -127,7 +127,8 @@ class Client(process):
             payload = craft_operation_payload(oprn)
             print('sending payload ', payload)
             send(('please_work', payload), to=head)
-            if await(some(received(('result', (_, _, _, self.request_number)), from_=self.tail))):
+            req_id = self.request_number
+            if await(some(received(('result', finale_payload), from_=self.tail), has= finale_payload[-1] == req_id )):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')

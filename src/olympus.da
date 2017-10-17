@@ -52,9 +52,12 @@ class Olympus(process):
             key, keychain = keys[i]
             if isHead:
                 self.head_node = replica
+                timeout_val = int(self.config['head_timeout'])
             if isTail:
                 self.tail_node = replica
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict))
+                timeout_val = int(self.config['nonhead_timeout'])
+
+            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val))
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
