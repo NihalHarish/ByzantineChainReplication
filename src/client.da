@@ -34,6 +34,17 @@ class Client(process):
         print('Client got key ', self.crypt_key)
         self.T = 3
 
+
+    def client_request_failure(message_number, which_replica):
+        signature = sign_message()
+        send(('please_work', {}, signature), to=which_replica)
+
+
+    def forwarded_request_failure(message_number, which_replica):
+        signature = sign_message()
+        send(('retransmission', {}, signature), to=which_replica)
+
+
     def request_config_from_olympus():
         print('Request for config')
         logging.info("Client has requested for config from olympus: " + str(olympus))
@@ -44,10 +55,12 @@ class Client(process):
         logging.info("Client has received the config: ", config)
         return config
 
+
     def sign_message():
         nonce = random.randint(1, 1000)
         message = self.crypt_key.sign(nonce, '')
         return (message, nonce, client_id)
+
 
     def craft_operation_payload(operation):
         operation_payload = {}
@@ -65,8 +78,10 @@ class Client(process):
         operation_payload['request_number'] = self.request_number
         return operation_payload
 
+
     def get_head(config):
         return config['head_node']
+
 
     def parse_workload(workload):
         workload_list = workload.split(';')
@@ -75,6 +90,7 @@ class Client(process):
         for work in workload_list:
             operation_set.append(work)
         return operation_set[:-1]
+
 
     def validate_result_proof(replica_response):
         '''
