@@ -71,7 +71,7 @@ class Client(process):
         '''
             We check if atleast t+1 replicas have verfied or not
         '''
-        result, result_proof, status = replica_response
+        result, result_proof, status, request_num = replica_response
         correct_replica = 0
         result_state_json = json.dumps(result).encode('utf-8')
         hashed_result = SHA256.new(result_state_json).hexdigest()
@@ -112,26 +112,22 @@ class Client(process):
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        operation_set = [
-                "append('start', 'countermeasure')",
-                "append('start', 'saying')",
-                "put('lights', 'remedy')",
-                "append('lights', ' combat')",
-                "get('lights')",
-                "append('lights', ' awesome')",
-                "get('lights')",
-                "put('lights', 'over')",
-                "get('lights')"
-            ]
+        # operation_set = [
+        #         "append('start', 'countermeasure')",
+        #         "append('start', 'saying')",
+        #         "put('lights', 'remedy')",
+        #         "append('lights', ' combat')",
+        #         "get('lights')",
+        #         "append('lights', ' awesome')",
+        #         "get('lights')",
+        #         "put('lights', 'over')",
+        #         "get('lights')"
+        #     ]
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
+            print('sending payload ', payload)
             send(('please_work', payload), to=head)
-            if await(some(received(('result', finale_result)))):
-                # if validate_result_proof(finale_result):
-                #     self.request_number+=1
-                # else:
-                #     print('Invalid result proof')
-                #     # start over
+            if await(some(received(('result', (_, _, _, self.request_number)), from_=self.tail))):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
@@ -147,7 +143,7 @@ class Client(process):
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
-        self.request_timeout = self.config['client_timeout']
+        self.request_timeout = float(self.config['client_timeout'])
         self.head = self.config['head_node']
         self.tail = self.config['tail_node']
         self.T = int(self.config['t'])
