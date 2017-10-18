@@ -69,18 +69,34 @@ def pseudorandom(seed, size):
 def parse_config(config):
     workloads = []
     workload_keys = []
+    failures = []
+    failure_keys = []
     # Generate Psuedorandom Workload
     for key in config:
-        x = re.search('workload\[(\d+)\]', key)
-        if x != None:
+        regex_match = re.search('workload\[(\d+)\]', key)
+        if regex_match != None:
             workload_keys.append(key)
             workload = config[key]
-            workloads.insert(int(x.group(1)), workload)
-
+            workloads.insert(int(regex_match.group(1)), workload)
+        regex_match = re.search('failures\\[(\\d+),(\\d+)\]', key)
+        if regex_match != None:
+            config_number = regex_match.group(1)
+            replica_number = regex_match.group(2)
+            payload = {
+                'config_number' : config_number,
+                'replica_number' : replica_number,
+                'operations' : config[key]
+            }
+            failures.append(payload)
+            failure_keys.append(key)
     #print(workloads)
     for workload_key in workload_keys:
         config.pop(workload_key)
     config['workload'] = workloads
+
+    for failure_key in failure_keys:
+        config.pop(failure_key)
+    config['failures'] = failures
     return config
 
 if __name__ == '__main__':
