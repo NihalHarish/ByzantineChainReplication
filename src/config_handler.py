@@ -66,6 +66,11 @@ def pseudorandom(seed, size):
     workload = __generate_pseudo_random_workload(seed, size)
     return workload
 
+def parse_failure_operations(operation_str):
+    operations_list = re.split('[,;]', operation_str)
+    operations_list[:] = [operation.strip() for operation in operations_list]
+    return operations_list
+
 def parse_config(config):
     workloads = []
     workload_keys = []
@@ -82,10 +87,11 @@ def parse_config(config):
         if regex_match != None:
             config_number = regex_match.group(1)
             replica_number = regex_match.group(2)
+            operations = parse_failure_operations(config[key])
             payload = {
                 'config_number' : config_number,
                 'replica_number' : replica_number,
-                'operations' : config[key]
+                'operations' : operations
             }
             failures.append(payload)
             failure_keys.append(key)
