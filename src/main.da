@@ -4,6 +4,7 @@ from client import Client
 from Crypto import Random
 from Crypto.PublicKey import RSA
 from optparse import OptionParser
+import config_handler
 
 def generate_key_pair():
     random_generator = Random.new().read
@@ -15,6 +16,7 @@ def main():
     option_parser.add_option("--test_case_name", dest='test_case', help = 'test case name in the config file that should be run', metavar='TESTCASE')
     (options, args) = option_parser.parse_args()
     test_case = None
+
     if not options.test_case:
         print("Test Case Name Not Supplied")
         print("Loading Default: test1")
@@ -22,10 +24,15 @@ def main():
     else:
         test_case = options.test_case
 
+
+    config = config_handler.load_config()[test_case]
+    failures = config['failures']
+    print(failures)
+
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
 
-    new_clients = list(new(Client, num= 3, at='ClientNode')) # TODO: read from config
+    new_clients = list(new(Client, num= int(config['num_client']), at='ClientNode')) # TODO: read from config
 
     client_dict = {}
     client_keys = {}

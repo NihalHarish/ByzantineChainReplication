@@ -41,6 +41,27 @@ class Olympus(process):
         replicas = list(new(Replica, num= number))
         replica_ids = [uuid.uuid4().hex for replica in replicas]
         keys  = [generate_replica_key_pair(replica_id) for replica_id in replica_ids]
+        failure = self.config['failures']
+        print(failure)
+        replica_fail = {}
+        for i in failure:
+            replica_index = int(i['replica_number'])
+            # we will have to construct a message as follows: (trigger_msg, from_which_client, msg_number, failure_action)
+            for failure_operation in i['operations']:
+                failure_trigger, failure_action = failure_operation
+                failure_trigger_msg = re.search('\w+', failure_trigger).group()
+                failure_addresses_regex  = re.search('(\d+),(\d+)', failure_trigger)
+                failure_from = int(failure_addresses_regex.group(1))
+                failure_message_number = int(failure_addresses_regex.group(2))
+
+                failure_tuple = (failure_trigger_msg, failure_from, failure_message_number, failure_action)
+                if replica_index not in replica_fail:
+                    replica_fail[replica_index] = [failure_tuple]
+                else:
+                    replica_fail[replica_index].append(failure_tuple)
+
+        print(replica_fail)
+
 
         for i, replica in enumerate(replicas):
             replica_id = replica_ids[i]
@@ -58,7 +79,11 @@ class Olympus(process):
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
 
-            setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys))
+            if i in replica_fail:
+                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, replica_fail[i]))
+            else:
+                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, None))
+
         start(replicas)
         logging.info("Replica init for t = "+ str(number) + " is complete") 
         self.replica_list = replicas
@@ -86,6 +111,7 @@ class Olympus(process):
         client_config['replica_keys']   = self.replicas_key_pairs
         client_config['replicas']       = self.replica_list
         client_config['t']              = config['t']
+        client_config['failures']       = config['failures']
         print('done crafting clients config!')
         return client_config
 
