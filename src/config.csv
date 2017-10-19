@@ -39,7 +39,8 @@ workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
 # position in the chain, starting from 0.  replicas without a specified
 # failure scenario are failure-free.
 # 0th config and 0th replica, the second client sends a message with request number 1, and head decides to crash
-failures[0,0] = client_request(0,4), change_result()
+
+failures[0,0] = client_request(0,5), drop_result_stmt()
 #failures[0,1] = result_shuttle(0,5), change_operation()
 #failures[0,2] = shuttle(0,5), drop_result_stmt()
 

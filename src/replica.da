@@ -39,7 +39,7 @@ DROP_RESULT_STMT = 'drop_result_stmt()'
 
 
 class Replica(process):
-    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, clients_list: instance, head: Replica, clients: dict, timeout_val: int, client_keys: dict, failures: None):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, clients_list: instance, head: Replica, clients: dict, timeout_val: int, client_keys: dict, failures: instance, head_replica_id: str):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -69,6 +69,7 @@ class Replica(process):
         _build_key_chain(keychain)
         self.client_list = clients_list
         self.head_replica = head
+        self.head_replica_id = head_replica_id
         self.logger = None
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
@@ -160,11 +161,11 @@ class Replica(process):
         print("REPLICA IS RUNNING")
         await(False)
 
-    def _change_result():
+    def _change_result(status):
         '''
             this replica uses the hash of 'OK', instead of the hash of the actual result, in its result statement.
         '''
-        pass
+        generate_result_proof(status, True)
 
 
     def _change_operation(operation):
@@ -182,7 +183,12 @@ class Replica(process):
         '''
             omit the head's result statement from the result proof.
         '''
-        pass
+        dropped_result_proof = []
+        for results in self.result_proof:
+            signature, result_statement, replica_id = results
+            if replica_id != head_replica_id:
+                dropped_result_proof.append(results)
+        return dropped_result_proof
 
 
     def update_current_slot_number():
@@ -263,21 +269,25 @@ class Replica(process):
 
         if self.isHead:
             update_current_slot_number()
+            status = perform_operation(operation)
             if failure_action is not None and failure_action == CHANGE_OPERATION:
                 operation = _change_operation(operation)
-                print('OH MY GOD >>>>>> ITS ACTUALLY DOING THE FAILURE ', operation)
-            status = perform_operation(operation)
+                print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING_THE_OPERATION TO GET(\'X\') ', operation)
+            generate_result_proof(status)
             if failure_action is not None and failure_action == CHANGE_RESULT:
-                generate_result_proof(status, True)
-                print('OH MY GOD >>>>>> ITS ACTUALLY DOING THE FAILURE ', self.result_proof)
-            else:
-                generate_result_proof(status)
+                _change_result(status)
+                print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING_THE_RESULT TO HASH(OK)', self.result_proof)
             generate_order_proof(operation)
             update_history(self.current_slot, operation, self.order_proof)
             client_id, client_request_id = client_info
             client_info_checksum = SHA256.new(json.dumps(client_info).encode('utf-8')).hexdigest()
             wait_for_result_shuttle(client_info_checksum)
             shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, client_info_checksum, client_id, client_request_id)
+            if failure_action is not None and failure_action == DROP_RESULT_STMT:
+                dropped_result_proof = _drop_result_stmt()
+                shuttle_msg[SHUTTLE_RESULT_PROOF] = dropped_result_proof
+                print('OH MY GOD >>>>>> ITS ACTUALLY DROPPING THE HEAD_RESULT_STMT ', dropped_result_proof)
+
             dispatch_shuttle_message(shuttle_msg)
 
 
@@ -457,6 +467,7 @@ class Replica(process):
                         self.result_shuttle_cache[checksum] = result_shuttle_msg  # used during retransmission scenario
                         # Send message back to client
                         # print('arrived at the tail and sending to ', self.clients[client_id], ' answer ', self.running_state)
+                        print(len(result_proof_shuttle))
                         send(('result', (self.running_state, self.result_proof, status, client_request_id)), to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
@@ -622,10 +633,10 @@ def main():
 
     client_dict = {}
 
-    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1, client_dict, 10, None))
-    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1, client_dict, 10, None))
-    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1, client_dict, 10, None))
-    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1, client_dict, 10, None))
+    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1, client_dict, 10, None, unique_id_1 ))
+    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1, client_dict, 10, None, unique_id_1 ))
+    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1, client_dict, 10, None, unique_id_1 ))
+    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1, client_dict, 10, None, unique_id_1 ))
 
 
     start(replica1)
