@@ -31,6 +31,7 @@ class Client(process):
         self.tail = None
         self.replicas =[]
         self.crypt_key = crypt_key
+        self.failures = []
         print('Client got key ', self.crypt_key)
         self.T = 3
 
@@ -168,11 +169,13 @@ class Client(process):
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
+        print(self.config)
         self.request_timeout = float(self.config['client_timeout'])
         self.head = self.config['head_node']
         self.tail = self.config['tail_node']
         self.T = int(self.config['t'])
         self.replicas = self.config['replicas']
+        self.failures = self.config['failures']
         build_replica_keys()
         make_operation_request()
 

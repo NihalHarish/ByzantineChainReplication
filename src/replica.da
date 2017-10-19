@@ -5,6 +5,8 @@ from Crypto import Random
 import time
 import logging
 import os
+from constants import  (RESULT_SHUTTLE_FAILURE_TRIGGER, CLIENT_REQUEST_FAILURE_TRIGGER, SHUTTLE_FAILURE_TRIGGER, FORWARDED_FAILURE_TRIGGER, CHANGE_OPERATION_FAILURE, CHANGE_RESULT_FAILURE,DROP_RESULT_FAILURE)
+
 
 # Replica States
 REPLICA_PENDING = 'PENDING'
@@ -31,7 +33,7 @@ RESULT = 'result'
 STATUS = 'status'
 
 class Replica(process):
-    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, client: instance, head: Replica, clients: dict, timeout_val: int, client_keys: dict):
+    def setup(isHead: bool, isTail: bool, unique_id: str, prev_replica: Replica, next_replica: Replica, key: instance, keychain: dict, clients_list: instance, head: Replica, clients: dict, timeout_val: int, client_keys: dict, failures: None):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -59,12 +61,14 @@ class Replica(process):
             'get' :self._get
         }
         _build_key_chain(keychain)
-        self.client = client
+        self.client_list = clients_list
         self.head_replica = head
         self.logger = None
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
         self.timeout_val = timeout_val
+        self.failures = failures  # [(failure_trigger_msg, from_which_client, message_number, failure_action)]
+        print (self, ' FAILURES: ', failures)
 
 
     def _build_key_chain(keychain):
@@ -215,6 +219,8 @@ class Replica(process):
 
     def handle_operation(operation, client_info):
         if self.isHead:
+            if self.failures is not None:
+                check_failure('client_request', operation)
             update_current_slot_number()
             status = perform_operation(operation)
             generate_result_proof(status)
@@ -314,7 +320,7 @@ class Replica(process):
         return False
 
 
-    def receive(msg=('please_work', client_payload, client_signature), from_=c):
+    def receive(msg=('please_work', client_payload, client_signature), from_=c):  # TODO: Failure injection
         if validate_client_signature(client_signature):
             operation = {}
             operation['client_id'] = client_payload['client_id']
@@ -327,10 +333,32 @@ class Replica(process):
             handle_operation(operation, client_info)
 
 
+    def check_failure(type_failure, payload):
+        if type_failure == 'shuttle' or type_failure == 'result_shuttle' or type_failure == 'client_request':
+            for failure_tuple in self.failures:
+                if type_failure in failure_tuple:
+                    _, from_which_client, message_number, action = failure_tuple
+                    # extract message number and client id from the payload
+                    # then check the index of the client id in the client list and try matching it with the client mentioned in the failure
+                    client_id = payload[SHUTTLE_CLIENT_ID]
+                    try:
+                        req_id = payload['request_id']
+                    except KeyError:
+                        req_id = payload[CLIENT_REQUEST_ID]
+                    client_process = self.clients[client_id]
+                    if req_id == message_number and self.client_list.index(client_process) == from_which_client:
+                        print('trigger the freaking action man ', action, ' and the client index is ', from_which_client, ' and for request number ', req_id, self.isHead)
+                        return True
+
+
+
     def receive(msg=('shuttle', payload), from_=prev_replica):
         shuttle_msg = payload
-        #print(shuttle_msg)
+
+
         if self.current_slot+1 == shuttle_msg[SHUTTLE_SLOT]:  # new slot
+            if self.failures is not None:
+                check_failure('shuttle', payload)  # TODO: adding shuttle failure
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
             if order_proof_is_valid:
@@ -355,8 +383,8 @@ class Replica(process):
                         result_shuttle_msg[STATUS] = status
                         self.result_shuttle_cache[checksum] = result_shuttle_msg  # used during retransmission scenario
                         # Send message back to client
-                        print('arrived at the tail and sending to ', self.clients[client_id], ' answer ', self.running_state)
-                        # send(('result', (self.running_state, self.result_proof, status, client_request_id)), to=self.clients[client_id])
+                        # print('arrived at the tail and sending to ', self.clients[client_id], ' answer ', self.running_state)
+                        send(('result', (self.running_state, self.result_proof, status, client_request_id)), to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail. Running state: ' +str(self.running_state))
                         send(('result_shuttle', result_shuttle_msg), to=prev_replica)
                     else:
@@ -390,6 +418,10 @@ class Replica(process):
         #logging.info(str(self) + ': Receiving result shuttle')
         logger.info(str(self) + ': Receiving result shuttle')
         complete_result_proof = payload[SHUTTLE_RESULT_PROOF]
+
+        if self.failures is not None:
+            check_failure('result_shuttle', payload)
+
         if validate_complete_result_shuttle(complete_result_proof):
             result_shuttle = payload
             checksum = result_shuttle[CHECKSUM]
@@ -517,10 +549,10 @@ def main():
 
     client_dict = {}
 
-    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1, client_dict, 10))
-    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1, client_dict, 10))
-    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1, client_dict, 10))
-    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1, client_dict, 10))
+    setup(replica1, (True, False, unique_id_1, None, replica2, key1, keychain1, None, replica1, client_dict, 10, None))
+    setup(replica2, (False, False, unique_id_2, replica1, replica3, key2, keychain2, None, replica1, client_dict, 10, None))
+    setup(replica3, (False, False, unique_id_3, replica2, replica4, key3, keychain3, None, replica1, client_dict, 10, None))
+    setup(replica4, (False, True, unique_id_4, replica3, None, key4, keychain4, None, replica1, client_dict, 10, None))
 
 
     start(replica1)
