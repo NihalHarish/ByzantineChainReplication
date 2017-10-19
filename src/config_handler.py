@@ -67,7 +67,7 @@ def pseudorandom(seed, size):
     return workload
 
 def parse_failure_operations(operation_str):
-    operations_list = re.split('[,;]', operation_str)
+    operations_list = re.split(',\s*(?![^()]*\))|;', operation_str)
     operations_list[:] = [operation.strip() for operation in operations_list]
     return operations_list
 
