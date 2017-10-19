@@ -5,19 +5,6 @@ from random_words import RandomWords
 
 def load_config(config_file='config.csv'):
     config = {}
-    with open(config_file,'r') as f:
-        for line in f:
-            if line[0] != '#':
-                (key,sep,val) = line.partition('=')
-                # if the line does not contain '=', it is invalid and hence ignored
-                if len(sep) != 0:
-                    val = val.strip()
-                    config[key.strip()] = int(val) if str.isdecimal(val) else val
-    config = parse_config(config)
-    return config
-
-def load_config(config_file='config.csv'):
-    config = {}
     test_cases = {}
     test_case_key = None
     with open(config_file,'r') as f:
