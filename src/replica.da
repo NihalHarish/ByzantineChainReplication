@@ -400,6 +400,7 @@ class Replica(process):
 
 
     def check_failure(type_failure, payload):
+        print(type_failure, payload)
         if type_failure == 'shuttle' or type_failure == 'result_shuttle' or type_failure == 'client_request':
             for failure_tuple in self.failures:
                 if type_failure in failure_tuple:
