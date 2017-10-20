@@ -54,7 +54,7 @@ class Olympus(process):
                 failure_from = int(failure_addresses_regex.group(1))
                 failure_message_number = int(failure_addresses_regex.group(2))
 
-                failure_list = [failure_trigger_msg, failure_from, failure_message_number, failure_action, False]  # False, means dont execute now
+                failure_list = [failure_trigger_msg, failure_from, failure_message_number, failure_action]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
                 else:

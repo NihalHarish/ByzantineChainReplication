@@ -90,7 +90,9 @@ class Client(process):
         operation_set = []
         for work in workload_list:
             operation_set.append(work)
-        return operation_set[:-1]
+        if operation_set[-1] == ' ':
+            return operation_set[:-1]
+        return operation_set
 
 
     def validate_result_proof(replica_response):
@@ -119,9 +121,10 @@ class Client(process):
                 # if result_hash == hashed_result:
                 #    correct_replica += 1
 
+        # print(replica_correctness)
         correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
-            print(status)
+            print(status, result)
             return True
         return False
 
@@ -169,7 +172,6 @@ class Client(process):
     def start_over():
         self.config = {}
         self.config = request_config_from_olympus()
-        print(self.config)
         self.request_timeout = float(self.config['client_timeout'])
         self.head = self.config['head_node']
         self.tail = self.config['tail_node']
