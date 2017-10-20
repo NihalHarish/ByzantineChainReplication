@@ -172,8 +172,13 @@ class Replica(process):
         '''
             replica uses get('x') as the operation in its order statement and result statement
         '''
-        bad_operation = operation
+        # bad_operation = operation
+        # bad_operation['opr'] = 'get'
+        # bad_operation['payload']['key'] = None
+        # bad_operation['payload']['value'] = 'X'
+        bad_operation = operation.copy()
         bad_operation['opr'] = 'get'
+        bad_operation['payload'] = operation['payload'].copy()
         bad_operation['payload']['key'] = None
         bad_operation['payload']['value'] = 'X'
         return bad_operation
@@ -272,7 +277,6 @@ class Replica(process):
             status = perform_operation(operation)
             if failure_action is not None and failure_action == CHANGE_OPERATION:
                 operation = _change_operation(operation)
-                print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING_THE_OPERATION TO GET(\'X\') ', operation)
             generate_result_proof(status)
             if failure_action is not None and failure_action == CHANGE_RESULT:
                 _change_result(status)
@@ -347,7 +351,7 @@ class Replica(process):
                     if slot != statement_slot or operation != statement_operation:
                         return False
             else:
-                print('it messed up big')
+                print('it messed up big, the verification failed ', replica_id)
 
         return True
 
@@ -400,7 +404,6 @@ class Replica(process):
 
 
     def check_failure(type_failure, payload):
-        print(type_failure, payload)
         if type_failure == 'shuttle' or type_failure == 'result_shuttle' or type_failure == 'client_request':
             for failure_tuple in self.failures:
                 if type_failure in failure_tuple:
@@ -439,21 +442,35 @@ class Replica(process):
     def receive(msg=('shuttle', payload), from_=prev_replica):
         shuttle_msg = payload
 
-
         if self.current_slot+1 == shuttle_msg[SHUTTLE_SLOT]:  # new slot
-            # if self.failures is not None:
-            #     check_failure('shuttle', payload)  # TODO: adding shuttle failure
+            if self.failures is not None:
+                check_failure('shuttle', payload)
+            failures_list = failures_we_can_execute_now()
+            failure_action = None
+            bad_operation = None
+
+            if len(failures_list) != 0:
+                failure_action = failures_list[0]
+                print('This is action we are going to perform ', failure_action)
+
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
             if order_proof_is_valid:
                 operation = shuttle_msg[SHUTTLE_OPERATION]
                 update_current_slot_number()
                 status = perform_operation(operation)
+                if failure_action is not None and failure_action == CHANGE_OPERATION:
+                    print(order_proof_shuttle)
+                    operation = _change_operation(operation)
+                    print('OH MY GOD >>>>>>>> ITS ACTUALLY CHANGING THE OPERATION TO GET(\'X\')', operation)
                 result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
                 if check_result_proof_validity(result_proof_shuttle):
                     generate_order_proof(operation)
                     populate_order_proof(order_proof_shuttle)
                     generate_result_proof(status)
+                    if failure_action is not None and failure_action == CHANGE_RESULT:
+                        _change_result(status)
+                        print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING THE RESULT TO HASH(OK)', self.result_proof)
                     populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation, self.order_proof)
                     checksum = shuttle_msg[CHECKSUM]
@@ -461,6 +478,10 @@ class Replica(process):
                     client_request_id = shuttle_msg[CLIENT_REQUEST_ID]
                     wait_for_result_shuttle(checksum)
                     shuttle_msg = generate_shuttle_message(self.result_proof, self.order_proof, self.current_slot, operation, checksum, client_id, client_request_id)
+                    if failure_action is not None and failure_action == DROP_RESULT_STMT:
+                        dropped_result_proof = _drop_result_stmt()
+                        shuttle_msg[SHUTTLE_RESULT_PROOF] = dropped_result_proof
+                        print('OH MY GOD >>>>>> ITS ACTUALLY DROPPING THE HEAD', dropped_result_proof)
                     if self.isTail:
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
@@ -559,7 +580,6 @@ class Replica(process):
             # TODO: Problem: Head might receive this from replicas as well.. so it should make sure, that the head delivers the message to client
         else:                              # TODO: This part is completely messed up.. especially about cancelling timers
             if not isHead:
-                print (self, 'good lord, checksum is not present ', checksum, self.isTail)
                 print('forwarding request to the head')
                 send(('retransmission', retrans_payload), to=head_replica)
                 if await(some(received(('result_shuttle', payload)))):
