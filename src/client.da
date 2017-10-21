@@ -20,7 +20,7 @@ class Client(process):
     #def setup(client_id: str, key: instance, replica_keychain: dict, olympus_key: instance, request_number: int, timer_request: instance, time_retransmission: instance, config_file: dict, operation_set: set):
     #    pass
 
-    def setup(olympus: instance, unique_id: str, crypt_key: instance):
+    def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
@@ -32,6 +32,7 @@ class Client(process):
         self.replicas =[]
         self.crypt_key = crypt_key
         self.failures = []
+        self.test_case = test_case
         print('Client got key ', self.crypt_key)
         self.T = 3
 
@@ -145,6 +146,7 @@ class Client(process):
 
         elif timeout(self.request_timeout):
             print('TIMEOUT HAS EXPIRED YET AGAIN')
+            # retransmission_request(payload)
             # start over
 
 
@@ -182,7 +184,7 @@ class Client(process):
         make_operation_request()
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs')
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory, 'client.log'), filemode='w', level=logging.DEBUG)
 
     def build_replica_keys():

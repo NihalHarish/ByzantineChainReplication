@@ -80,12 +80,12 @@ class Olympus(process):
                 timeout_val = int(self.config['nonhead_timeout'])
 
             if i in replica_fail:
-                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, replica_fail[i], head_replica_id))
+                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, replica_fail[i], head_replica_id, test_case))
             else:
-                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, [], head_replica_id))
+                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r, key, keychain, self.client_list, self.head_node, self.client_dict, timeout_val, self.client_public_keys, [], head_replica_id, test_case))
 
         start(replicas)
-        logging.info("Replica init for t = "+ str(number) + " is complete") 
+        logging.info("Replica init for t = "+ str(number) + " is complete")
         self.replica_list = replicas
 
     def parse_workload(workload):
@@ -131,7 +131,7 @@ class Olympus(process):
             logging.info("Olympus has sent config to client: "+ str(client))
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/')
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory, 'olympus.log'), filemode='w', level=logging.INFO)
 
 
