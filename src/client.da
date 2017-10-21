@@ -66,7 +66,7 @@ class Client(process):
 
     def craft_operation_payload(operation):
         operation_payload = {}
-        print('Operation: {0}'.format(self.request_number), operation)
+        print('{0}: Operation: {1}'.format(self.client_id, self.request_number), operation)
         operation_payload['opr'] = re.match('^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
             value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'","")
@@ -125,7 +125,7 @@ class Client(process):
         # print(replica_correctness)
         correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
-            print(status, result)
+            print(str(self.client_id) + " : " + status +" "+ str(result))
             return True
         return False
 
@@ -169,9 +169,11 @@ class Client(process):
             self.request_number += 1
         else:
             print('Invalid result_proof')
+        print(str(client_id) + ' has received: ' + str(something[0]))
 
 
     def start_over():
+        print('Start Over')
         self.config = {}
         self.config = request_config_from_olympus()
         self.request_timeout = float(self.config['client_timeout'])
