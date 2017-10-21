@@ -5,6 +5,7 @@ from Crypto import Random
 from Crypto.PublicKey import RSA
 from optparse import OptionParser
 import config_handler
+import os
 
 def generate_key_pair():
     random_generator = Random.new().read
@@ -28,6 +29,9 @@ def main():
     else:
         test_case = options.test_case
 
+    logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/{0}'.format(test_case))
+    if not os.path.isdir(logging_directory):
+        os.mkdir(logging_directory)
 
     config = config_handler.load_config()[test_case]
     failures = config['failures']
