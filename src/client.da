@@ -17,9 +17,6 @@ CONFIG_RECEIVED = 'take_config'
 
 class Client(process):
 
-    #def setup(client_id: str, key: instance, replica_keychain: dict, olympus_key: instance, request_number: int, timer_request: instance, time_retransmission: instance, config_file: dict, operation_set: set):
-    #    pass
-
     def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str):
         self.olympus = olympus
         self.config = None
@@ -68,12 +65,12 @@ class Client(process):
     def craft_operation_payload(operation):
         operation_payload = {}
         print('{0}: Operation: {1}'.format(self.client_id, self.request_number), operation)
-        operation_payload['opr'] = re.match('^[^\(]+', operation).group().strip()
+        operation_payload['opr'] = re.match(r'^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
-            value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'","")
+            value = re.search(r'\(([^)]+)\)', operation).group()[1:-1].replace("'","")
             key = None
         else:
-            key, value = re.search('\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
+            key, value = re.search(r'\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
         operation_payload['payload']['key']   = key.strip() if key else None
         operation_payload['payload']['value'] = value
@@ -103,10 +100,6 @@ class Client(process):
         '''
         result, result_proof, status, request_num = replica_response
         correct_replica = 0
-        #result_state_json = json.dumps(result).encode('utf-8')
-        #hashed_result = SHA256.new(result_state_json).hexdigest()
-
-        # hashed_result = None
         replica_correctness = {}
 
         for result_statement in result_proof:
@@ -114,16 +107,11 @@ class Client(process):
             _, result_hash, status = statement  # ('result', result_hash, status)
             if result_hash not in replica_correctness:
                 replica_correctness[result_hash] = 1
-            # if hashed_result is None:
-            #    hashed_result = result_hash
             hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
             public_key = self.replica_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
                 replica_correctness[result_hash] += 1  # trying to aggregate atleast t+1 consistent hashes
-                # if result_hash == hashed_result:
-                #    correct_replica += 1
 
-        # print(replica_correctness)
         correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
             print(str(self.client_id) + " : " + status +" "+ str(result))
@@ -147,9 +135,6 @@ class Client(process):
 
         elif timeout(self.request_timeout):
             print('TIMEOUT HAS EXPIRED YET AGAIN')
-            # retransmission_request(payload)
-            # start over
-
 
     def make_operation_request():
         workload = self.config['workload']
@@ -159,20 +144,21 @@ class Client(process):
             signature = sign_message()
             send(('please_work', payload, signature), to=head)
             req_id = self.request_number
-            if await(some(received(('result', finale_payload), from_=self.tail), has= finale_payload[-1] == req_id )):
+            if await(some(received(('result', finale_payload), from_=self.tail),\
+            has= finale_payload[-1] == req_id )):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
                 retransmission_request(payload)
-    
-    def receive(msg=('result', something), from_=c):
-        if validate_result_proof(something):
+
+    def receive(msg=('result', result), from_=tail):
+        if validate_result_proof(result):
             self.request_number += 1
         else:
             print('Invalid result_proof')
-        print(str(client_id) + ' has received: ' + str(something[0]))
+        print(str(client_id) + ' has received: ' + str(result[0]))
         with open('test.json', 'w') as test_log:
-            test_log.write(json.dumps(something[0]))
+            test_log.write(json.dumps(result[0]))
 
     def start_over():
         print('Start Over')
@@ -188,8 +174,11 @@ class Client(process):
         make_operation_request()
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/{0}'.format(test_case))
-        logging.basicConfig(filename=os.path.join(logging_directory, 'client.log'), filemode='w', level=logging.DEBUG)
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)),\
+                                         '../logs/{0}'.format(test_case))
+        logging.basicConfig(filename=os.path.join(logging_directory,\
+                                                  'client.log'),\
+                                                  filemode='w', level=logging.DEBUG)
 
     def build_replica_keys():
         for replica_id, public_key in self.config['replica_keys'].items():
@@ -201,6 +190,3 @@ class Client(process):
         print('Client running')
         start_over()
         await(False)
-        #self.config = request_config_from_olympus()
-        #make_operation_request()
-        #client_request()
