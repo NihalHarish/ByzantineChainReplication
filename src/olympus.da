@@ -19,7 +19,7 @@ class Olympus(process):
             client_keys: instace, test_case: str, crypt_key: instance):
         self.public_key = None
         self.replicas_key_pairs = {}
-        self.replicas_data = {}  # TODO: Change variable name??
+        self.replicas_data = {}
         self.replica_list = []
         self.head_node = None
         self.client_dict = client_dict
