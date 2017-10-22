@@ -3,6 +3,16 @@ import json
 from optparse import OptionParser
 import sys
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 if __name__ == '__main__':
 
     option_parser = OptionParser()
@@ -20,23 +30,22 @@ if __name__ == '__main__':
     else:
         test_case = options.test_case
 
-    
     test_value = json.loads(config_handler.load_config()[test_case]['test_dict'])
     client_data = None
-    with open('test.json') as test_file:    
+    with open('test.json') as test_file:
         client_data = json.load(test_file)
     if client_data is not None:
         if client_data == test_value:
             pass
         else:
-            print('Verification failed')
+            print(bcolors.FAIL, 'Verification failed', bcolors.ENDC)
             sys.exit(0)
     for key in test_value:
         if key in client_data:
             print('checking key: ' +str(key)+ " for value: " + str(test_value[key]))
             if client_data[key] == test_value[key]:
-                print('Verified')
+                print(bcolors.OKGREEN, 'Verified', bcolors.ENDC)
             else:
-                print('Verification Failed')
+                print(bcolors.FAIL, 'Verification Failed', bcolors.ENDC)
         else:
-            print('Verification Failed')
+            print(bcolors.FAIL, 'Verification Failed', bcolors.ENDC)
