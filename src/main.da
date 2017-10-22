@@ -14,8 +14,8 @@ def generate_key_pair():
 
 def test_json_handler():
     test_json = open('test.json', 'w')
-    return test_json 
-        
+    return test_json
+
 def main():
     option_parser = OptionParser()
     option_parser.add_option("--test_case_name", dest='test_case', help = 'test case name in the config file that should be run', metavar='TESTCASE')
@@ -35,7 +35,7 @@ def main():
 
     config = config_handler.load_config()[test_case]
     failures = config['failures']
-    print(failures)
+    print('No of failures:', failures)
 
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
