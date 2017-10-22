@@ -35,7 +35,7 @@ def main():
 
     config = config_handler.load_config()[test_case]
     failures = config['failures']
-    print(failures)
+    print('No of failures:', failures)
 
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
