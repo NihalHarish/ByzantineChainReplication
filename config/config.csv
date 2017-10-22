@@ -41,7 +41,7 @@ workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
 # 0th config and 0th replica, the second client sends a message with request number 1, and head decides to crash
 
 # failures[0,0] = forwarded_request(0,2), drop_result_stmt()
-failures[0,1] = result_shuttle(2,1),change_result()
+# failures[0,1] = result_shuttle(2,1),change_result()
 # failures[0,2] = shuttle(0,5), drop_result_stmt()
 
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 

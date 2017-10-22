@@ -4,7 +4,7 @@ import random
 from random_words import RandomWords
 
 
-def load_config(config_file='config.csv'):
+def load_config(config_file='../config/config.csv'):
     config = {}
     test_cases = {}
     test_case_key = None

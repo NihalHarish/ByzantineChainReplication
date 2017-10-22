@@ -1,10 +1,10 @@
-Name of the CONFIGURATION file: src/config.csv
+Name of the CONFIGURATION file: config/config.csv
 Logs: 
     Logs will be generated at logs/<test_case_name>/<replica/olympus/client>.log 
 
 
 How to add Test Case:
-    1. Open src/config.csv
+    1. Open config/config.csv
     2. Specify the test paramaters under the line test_case_name = <test_case_name>
     3. Also, specify a test_dict, which will be matched with the result received by the client.
 
