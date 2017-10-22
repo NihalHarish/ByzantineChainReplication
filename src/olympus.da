@@ -50,7 +50,7 @@ class Olympus(process):
             # from_which_client, msg_number, failure_action)
             for failure_operation in i['operations']:
                 failure_trigger, failure_action = failure_operation
-                failure_trigger_msg = re.search('\w+',
+                failure_trigger_msg = re.search(r'\w+',
                                                 failure_trigger).group()
                 failure_addresses_regex = re.search(r'(\d+),(\d+)',
                                                     failure_trigger)
@@ -179,7 +179,7 @@ class Olympus(process):
                 '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory, \
                 'olympus.log'), filemode='w', level=logging.INFO)
-            logging.info("Olympus has sent config to client: " + str(client))
+        logging.info("Olympus has sent config to client: " + str(client))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(
