@@ -9,6 +9,7 @@ import time
 import logging
 import os
 import time
+import sys
 # messages
 
 GET_CONFIG = 'get_config'
@@ -17,7 +18,7 @@ CONFIG_RECEIVED = 'take_config'
 
 class Client(process):
 
-    def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str):
+    def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str, olympus_public_key: instance):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
@@ -32,7 +33,14 @@ class Client(process):
         self.test_case = test_case
         print('Client got key ', self.crypt_key)
         self.T = 3
+        self.olympus_public_key = olympus_public_key
         #self.test_log = test_log
+
+    def validate_olympus(message):
+        signature, nonce = message
+        if self.olympus_public_key.verify(nonce, signature):
+            return True
+        return False
 
     def request_config_from_olympus():
         print('Request for config')
@@ -44,9 +52,12 @@ class Client(process):
         logging.info(
             'Client is waiting for a response from olympus: ' +
             str(olympus))
-        await(some(received((CONFIG_RECEIVED, config))))
-        logging.info("Client has received the config: ", config)
-        return config
+        await(some(received((CONFIG_RECEIVED, config, signature))))
+        if validate_olympus(signature):
+            logging.info("Client has received the config: ", config)
+            return config
+        else:
+            sys.exit(0)
 
     def sign_message():
         nonce = random.randint(1, 1000)

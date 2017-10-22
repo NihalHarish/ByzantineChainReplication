@@ -7,6 +7,7 @@ from replica import Replica
 import message_type
 import config_handler
 import os
+import random
 
 GET_CONFIG = 'get_config'
 SEND_CONFIG = 'take_config'
@@ -15,7 +16,7 @@ SEND_CONFIG = 'take_config'
 class Olympus(process):
 
     def setup(client_dict: instance, client_list: instance,
-              client_keys: instace, test_case: str):
+            client_keys: instace, test_case: str, crypt_key: instance):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}  # TODO: Change variable name??
@@ -27,6 +28,7 @@ class Olympus(process):
         self.config = {}
         self.test_case = test_case
         self.tail_node = None
+        self.crypt_key = crypt_key
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -34,6 +36,11 @@ class Olympus(process):
         public_key = key.publickey().exportKey()
         self.replicas_key_pairs[replica_id] = public_key
         return (key, self.replicas_key_pairs)
+
+    def sign_message():
+        nonce = random.randint(1, 1000)
+        message = self.crypt_key.sign(nonce, '')
+        return (message, nonce)
 
     def init_replicas(number):
         logging.info("Staring replica init for t = " + str(number))
@@ -169,17 +176,18 @@ class Olympus(process):
         if validate_client(signed_message):
             config = craft_client_config(client)
             print('Will be sending config to ', str(client))
-            send((SEND_CONFIG, config), to=client)
+            signature = sign_message()
+            send((SEND_CONFIG, config, signature), to=client)
             logging.info("Olympus has validated client: "+ str(client))
             logging.info("Olympus has sent config to client: "+ str(client))
 
-    def init_logger():
-        logging_directory = os.path.join(os.path.dirname(\
-                os.path.abspath(__file__)), \
-                '../logs/{0}'.format(test_case))
-        logging.basicConfig(filename=os.path.join(logging_directory, \
-                'olympus.log'), filemode='w', level=logging.INFO)
-        logging.info("Olympus has sent config to client: " + str(client))
+    # def init_logger():
+    #     logging_directory = os.path.join(os.path.dirname(\
+    #             os.path.abspath(__file__)), \
+    #             '../logs/{0}'.format(test_case))
+    #     logging.basicConfig(filename=os.path.join(logging_directory, \
+    #             'olympus.log'), filemode='w', level=logging.INFO)
+    #     logging.info("Olympus has sent config to client: " + str(client))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(

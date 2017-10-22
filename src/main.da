@@ -57,13 +57,17 @@ def main():
     client_dict = {}
     client_keys = {}
     test_json_f = test_json_handler()
+
+    olympus_key = generate_key_pair()
+    olympus_public_key = olympus_key.publickey()
+
     for i, c in enumerate(new_clients):
         unique_id = uuid.uuid4().hex
         client_dict[unique_id] = c
         crypt_key = generate_key_pair()
         client_keys[unique_id] = crypt_key.publickey()
-        setup(c, (olympus, unique_id, crypt_key, test_case))
+        setup(c, (olympus, unique_id, crypt_key, test_case, olympus_public_key))
 
-    setup(olympus, (client_dict, new_clients, client_keys, test_case))
+    setup(olympus, (client_dict, new_clients, client_keys, test_case, olympus_key))
     start(olympus)
     start(new_clients)
