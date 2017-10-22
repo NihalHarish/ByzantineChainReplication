@@ -40,7 +40,7 @@ WORKLOAD GENERATION:
                                             # dummy value, to support 'get', 'append' and 'slice'
                                             # operations, before any keys have been generated
         
-            for x in range(size):
+            loop though range of size:
                 random_word -> generate a random word using rw
                 random_operation -> choose a an operation from operation list randomly using the random function
                 check the value of the random operation:
