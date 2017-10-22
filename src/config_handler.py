@@ -68,7 +68,7 @@ def parse_failure_operations(operation_str):
     for operation in operations_tuple_list:
         operations_tuple = re.split(r',\s*(?![^()]*\))', operation)
         operations_list.append(tuple(operations_tuple))
-        print('Operations Tuple: ', operations_tuple)
+        # print('Operations Tuple: ', operations_tuple)
     return operations_list
 
 

@@ -45,7 +45,7 @@ def main():
 
     config = config_handler.load_config()[test_case]
     failures = config['failures']
-    print('No of failures:', failures)
+    print('Failures passed on are as follows:', failures)
 
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
@@ -62,8 +62,6 @@ def main():
         client_dict[unique_id] = c
         crypt_key = generate_key_pair()
         client_keys[unique_id] = crypt_key.publickey()
-        #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_handler()))
-        #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_f))
         setup(c, (olympus, unique_id, crypt_key, test_case))
 
     setup(olympus, (client_dict, new_clients, client_keys, test_case))

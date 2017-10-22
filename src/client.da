@@ -34,14 +34,6 @@ class Client(process):
         self.T = 3
         #self.test_log = test_log
 
-    def client_request_failure(message_number, which_replica):
-        signature = sign_message()
-        send(('please_work', {}, signature), to=which_replica)
-
-    def forwarded_request_failure(message_number, which_replica):
-        signature = sign_message()
-        send(('retransmission', {}, signature), to=which_replica)
-
     def request_config_from_olympus():
         print('Request for config')
         logging.info(
@@ -158,7 +150,8 @@ class Client(process):
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             signature = sign_message()
-            send(('please_work', payload, signature), to=head)
+            # send(('please_work', payload, signature), to=head)
+            send(('client-request', payload, signature), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload),
                                    from_=self.tail),
