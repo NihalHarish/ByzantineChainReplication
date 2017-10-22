@@ -66,7 +66,7 @@ def parse_failure_operations(operation_str):
     operations_list = []
     operations_tuple_list = operation_str.split(';')
     for operation in operations_tuple_list:
-        operations_tuple = re.split(',\s*(?![^()]*\))', operation)
+        operations_tuple = re.split(r',\s*(?![^()]*\))', operation)
         operations_list.append(tuple(operations_tuple))
         print('Operations Tuple: ', operations_tuple)
     return operations_list
@@ -84,7 +84,7 @@ def parse_config(config):
             workload_keys.append(key)
             workload = config[key]
             workloads.insert(int(regex_match.group(1)), workload)
-        regex_match = re.search(r'failures\\[(\\d+),(\\d+)\]', key)
+        regex_match = re.search('failures\\[(\\d+),(\\d+)\]', key)
         if regex_match is not None:
             config_number = regex_match.group(1)
             replica_number = regex_match.group(2)

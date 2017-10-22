@@ -132,9 +132,11 @@ class Client(process):
 
         elif some(received(('error', _))):
             print('Some replica is in immutable stage')
+            logging.info(str(client_id) + ': Some replica is in immutable stage')
 
         elif timeout(self.request_timeout):
             print('TIMEOUT HAS EXPIRED YET AGAIN')
+            logging.info(str(client_id) + ' : TIMEOUT HAS EXPIRED AFTER RETRANSMISSION')
 
     def make_operation_request():
         workload = self.config['workload']
@@ -150,14 +152,16 @@ class Client(process):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
+                logging.info(str(client_id) + ': TIMEOUT HAS EXPIRED')
                 retransmission_request(payload)
 
     def receive(msg=('result', result), from_=tail):
         if validate_result_proof(result):
             self.request_number += 1
         else:
-            print('Invalid result_proof')
+            logging.info('Invalid result_proof from tail')
         print(str(client_id) + ' has received: ' + str(result[0]))
+        logging.info(str(client_id) + ' has received: ' + str(result[0]))
         with open('test.json', 'w') as test_log:
             test_log.write(json.dumps(result[0]))
 
