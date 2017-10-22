@@ -13,11 +13,12 @@ SEND_CONFIG = 'take_config'
 
 
 class Olympus(process):
-    def setup(client_dict: instance, client_list: instance, \
-            client_keys: instace, test_case: str):
+
+    def setup(client_dict: instance, client_list: instance,
+              client_keys: instace, test_case: str):
         self.public_key = None
         self.replicas_key_pairs = {}
-        self.replicas_data = {}    #TODO: Change variable name??
+        self.replicas_data = {}  # TODO: Change variable name??
         self.replica_list = []
         self.head_node = None
         self.client_dict = client_dict
@@ -35,28 +36,32 @@ class Olympus(process):
         return (key, self.replicas_key_pairs)
 
     def init_replicas(number):
-        logging.info("Staring replica init for t = "+ str(number))
-        replicas = list(new(Replica, num= number))
+        logging.info("Staring replica init for t = " + str(number))
+        replicas = list(new(Replica, num=number))
         replica_ids = [uuid.uuid4().hex for replica in replicas]
-        keys  = [generate_replica_key_pair(replica_id) \
+        keys = [generate_replica_key_pair(replica_id)
                 for replica_id in replica_ids]
         failure = self.config['failures']
         print(failure)
         replica_fail = {}
         for i in failure:
             replica_index = int(i['replica_number'])
-            # we will have to construct a message as follows: (trigger_msg, from_which_client, msg_number, failure_action)
+            # we will have to construct a message as follows: (trigger_msg,
+            # from_which_client, msg_number, failure_action)
             for failure_operation in i['operations']:
                 failure_trigger, failure_action = failure_operation
-                failure_trigger_msg = re.search('\w+', \
-                        failure_trigger).group()
-                failure_addresses_regex  = re.search(r'(\d+),(\d+)',\
-                        failure_trigger)
+                failure_trigger_msg = re.search('\w+',
+                                                failure_trigger).group()
+                failure_addresses_regex = re.search(r'(\d+),(\d+)',
+                                                    failure_trigger)
                 failure_from = int(failure_addresses_regex.group(1))
                 failure_message_number = int(failure_addresses_regex.group(2))
 
-                failure_list = [failure_trigger_msg, failure_from, \
-                        failure_message_number, failure_action]  # False, means dont execute now
+                failure_list = [
+                    failure_trigger_msg,
+                    failure_from,
+                    failure_message_number,
+                    failure_action]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
                 else:
@@ -67,11 +72,11 @@ class Olympus(process):
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
             replica_id = replica_ids[i]
-            isHead = True if i==0 else False
-            isTail = True if i==(len(replicas)-1) else False
+            isHead = True if i == 0 else False
+            isTail = True if i == (len(replicas) - 1) else False
 
-            prev_r = None if isHead else replicas[i-1]
-            next_r = None if isTail else replicas[i+1]
+            prev_r = None if isHead else replicas[i - 1]
+            next_r = None if isTail else replicas[i + 1]
 
             key, keychain = keys[i]
             if isHead:
@@ -82,28 +87,53 @@ class Olympus(process):
                 timeout_val = int(self.config['nonhead_timeout'])
 
             if i in replica_fail:
-                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r,\
-                        key, keychain, self.client_list, self.head_node, \
-                        self.client_dict, timeout_val, \
-                        self.client_public_keys, replica_fail[i],\
-                        head_replica_id, test_case))
+                setup(
+                    {replica},
+                    (isHead,
+                     isTail,
+                     replica_id,
+                     prev_r,
+                     next_r,
+                     key,
+                     keychain,
+                     self.client_list,
+                     self.head_node,
+                     self.client_dict,
+                     timeout_val,
+                     self.client_public_keys,
+                     replica_fail[i],
+                        head_replica_id,
+                        test_case))
             else:
-                setup({replica}, (isHead, isTail, replica_id, prev_r, next_r,\
-                        key, keychain, self.client_list,\
-                        self.head_node, self.client_dict, timeout_val,\
-                        self.client_public_keys, [], \
-                        head_replica_id, test_case))
+                setup(
+                    {replica},
+                    (isHead,
+                     isTail,
+                     replica_id,
+                     prev_r,
+                     next_r,
+                     key,
+                     keychain,
+                     self.client_list,
+                     self.head_node,
+                     self.client_dict,
+                     timeout_val,
+                     self.client_public_keys,
+                     [],
+                        head_replica_id,
+                        test_case))
 
         start(replicas)
-        logging.info("Replica init for t = "+ str(number) + " is complete")
+        logging.info("Replica init for t = " + str(number) + " is complete")
         self.replica_list = replicas
 
     def parse_workload(workload):
         match = re.match(r'^[^\(]+', workload).group()
         if match == 'pseudorandom':
-            seed, size = re.search(r'\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
-            seed  = int(seed)
-            size  = int(size)
+            seed, size = re.search(
+                r'\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed = int(seed)
+            size = int(size)
             workload = config_handler.pseudorandom(seed, size)
             print('Workload: ', workload)
         return workload
@@ -114,19 +144,20 @@ class Olympus(process):
         config = config_handler.load_config()[test_case]
         client_config = {}
         client_config['client_timeout'] = config['client_timeout']
-        client_config['workload']       = parse_workload(self.config['workload'][client_index])
-        client_config['replica_list']   = self.replica_list
-        client_config['head_node']      = self.head_node
-        client_config['tail_node']      = self.tail_node
-        client_config['replica_keys']   = self.replicas_key_pairs
-        client_config['replicas']       = self.replica_list
-        client_config['t']              = config['t']
-        client_config['failures']       = config['failures']
+        client_config['workload'] = parse_workload(
+            self.config['workload'][client_index])
+        client_config['replica_list'] = self.replica_list
+        client_config['head_node'] = self.head_node
+        client_config['tail_node'] = self.tail_node
+        client_config['replica_keys'] = self.replicas_key_pairs
+        client_config['replicas'] = self.replica_list
+        client_config['t'] = config['t']
+        client_config['failures'] = config['failures']
         print('done crafting clients config!')
         return client_config
 
     def validate_client(message):
-        signature, nonce, client_id =  message
+        signature, nonce, client_id = message
         public_key = self.client_public_keys[client_id]
         if public_key.verify(nonce, signature):
             return True
@@ -138,22 +169,25 @@ class Olympus(process):
             config = craft_client_config(client)
             print('Will be sending config to ', str(client))
             send((SEND_CONFIG, config), to=client)
-            logging.info("Olympus has sent config to client: "+ str(client))
+            logging.info("Olympus has sent config to client: " + str(client))
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(\
-                os.path.abspath(__file__)), \
-                '../logs/{0}'.format(test_case))
-        logging.basicConfig(filename=os.path.join(logging_directory, \
-                'olympus.log'), filemode='w', level=logging.INFO)
-
+        logging_directory = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)),
+            '../logs/{0}'.format(test_case))
+        logging.basicConfig(
+            filename=os.path.join(
+                logging_directory,
+                'olympus.log'),
+            filemode='w',
+            level=logging.INFO)
 
     def run():
         init_logger()
         logging.info("Olympus has started")
         self.config = config_handler.load_config()[self.test_case]
         t = self.config['t']
-        t = 2*t + 1
+        t = 2 * t + 1
         print("T: ", t)
         init_replicas(t)
         print("Olympus Running")

@@ -9,7 +9,7 @@ import time
 import logging
 import os
 import time
-#messages
+# messages
 
 GET_CONFIG = 'get_config'
 CONFIG_RECEIVED = 'take_config'
@@ -21,12 +21,12 @@ class Client(process):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
-        self.client_id = unique_id # uuid.uuid4().hex
+        self.client_id = unique_id  # uuid.uuid4().hex
         self.replica_keys = {}
         self.request_timeout = 10
         self.head = None
         self.tail = None
-        self.replicas =[]
+        self.replicas = []
         self.crypt_key = crypt_key
         self.failures = []
         self.test_case = test_case
@@ -34,54 +34,63 @@ class Client(process):
         self.T = 3
         #self.test_log = test_log
 
-
     def client_request_failure(message_number, which_replica):
         signature = sign_message()
         send(('please_work', {}, signature), to=which_replica)
-
 
     def forwarded_request_failure(message_number, which_replica):
         signature = sign_message()
         send(('retransmission', {}, signature), to=which_replica)
 
-
     def request_config_from_olympus():
         print('Request for config')
-        logging.info("Client has requested for config from olympus: " + str(olympus))
+        logging.info(
+            "Client has requested for config from olympus: " +
+            str(olympus))
         signature = sign_message()
         send((GET_CONFIG, signature), to=self.olympus)
-        logging.info('Client is waiting for a response from olympus: ' +str(olympus))
+        logging.info(
+            'Client is waiting for a response from olympus: ' +
+            str(olympus))
         await(some(received((CONFIG_RECEIVED, config))))
         logging.info("Client has received the config: ", config)
         return config
-
 
     def sign_message():
         nonce = random.randint(1, 1000)
         message = self.crypt_key.sign(nonce, '')
         return (message, nonce, client_id)
 
-
     def craft_operation_payload(operation):
         operation_payload = {}
-        print('{0}: Operation: {1}'.format(self.client_id, self.request_number), operation)
-        operation_payload['opr'] = re.match(r'^[^\(]+', operation).group().strip()
+        print(
+            '{0}: Operation: {1}'.format(
+                self.client_id,
+                self.request_number),
+            operation)
+        operation_payload['opr'] = re.match(
+            r'^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
-            value = re.search(r'\(([^)]+)\)', operation).group()[1:-1].replace("'","")
+            value = re.search(
+                r'\(([^)]+)\)',
+                operation).group()[
+                1:-
+                1].replace(
+                "'",
+                "")
             key = None
         else:
-            key, value = re.search(r'\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
+            key, value = re.search(
+                r'\(([^)]+)\)', operation).group()[1:-1].replace("'", "").split(',')
         operation_payload['payload'] = {}
-        operation_payload['payload']['key']   = key.strip() if key else None
+        operation_payload['payload']['key'] = key.strip() if key else None
         operation_payload['payload']['value'] = value
         operation_payload['client_id'] = self.client_id
         operation_payload['request_number'] = self.request_number
         return operation_payload
 
-
     def get_head(config):
         return config['head_node']
-
 
     def parse_workload(workload):
         workload_list = workload.split(';')
@@ -93,7 +102,6 @@ class Client(process):
             return operation_set[:-1]
         return operation_set
 
-
     def validate_result_proof(replica_response):
         '''
             We check if atleast t+1 replicas have verfied or not
@@ -104,20 +112,22 @@ class Client(process):
 
         for result_statement in result_proof:
             signature, statement, replica_id = result_statement
-            _, result_hash, status = statement  # ('result', result_hash, status)
+            # ('result', result_hash, status)
+            _, result_hash, status = statement
             if result_hash not in replica_correctness:
                 replica_correctness[result_hash] = 1
-            hashed_statement = SHA256.new(json.dumps(statement).encode('utf-8')).digest()
+            hashed_statement = SHA256.new(
+                json.dumps(statement).encode('utf-8')).digest()
             public_key = self.replica_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
-                replica_correctness[result_hash] += 1  # trying to aggregate atleast t+1 consistent hashes
+                # trying to aggregate atleast t+1 consistent hashes
+                replica_correctness[result_hash] += 1
 
         correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
-            print(str(self.client_id) + " : " + status +" "+ str(result))
+            print(str(self.client_id) + " : " + status + " " + str(result))
             return True
         return False
-
 
     def retransmission_request(payload):
         signature = sign_message()
@@ -132,11 +142,15 @@ class Client(process):
 
         elif some(received(('error', _))):
             print('Some replica is in immutable stage')
-            logging.info(str(client_id) + ': Some replica is in immutable stage')
+            logging.info(
+                str(client_id) +
+                ': Some replica is in immutable stage')
 
         elif timeout(self.request_timeout):
             print('TIMEOUT HAS EXPIRED YET AGAIN')
-            logging.info(str(client_id) + ' : TIMEOUT HAS EXPIRED AFTER RETRANSMISSION')
+            logging.info(
+                str(client_id) +
+                ' : TIMEOUT HAS EXPIRED AFTER RETRANSMISSION')
 
     def make_operation_request():
         workload = self.config['workload']
@@ -146,9 +160,9 @@ class Client(process):
             signature = sign_message()
             send(('please_work', payload, signature), to=head)
             req_id = self.request_number
-            if await(some(received(('result', finale_payload),\
-            from_=self.tail),\
-            has= finale_payload[-1] == req_id )):
+            if await(some(received(('result', finale_payload),
+                                   from_=self.tail),
+                          has=finale_payload[-1] == req_id)):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
@@ -179,13 +193,15 @@ class Client(process):
         make_operation_request()
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(os.path.abspath\
-                                        (__file__)),\
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath
+                                                         (__file__)),
                                          '../logs/{0}'.format(test_case))
-        logging.basicConfig(filename=os.path.join(logging_directory,\
-                                                  'client_{0}.log'.format(client_id)),\
-                                                  filemode='w',\
-                                                  level=logging.DEBUG)
+        logging.basicConfig(
+            filename=os.path.join(
+                logging_directory,
+                'client_{0}.log'.format(client_id)),
+            filemode='w',
+            level=logging.DEBUG)
 
     def build_replica_keys():
         for replica_id, public_key in self.config['replica_keys'].items():
