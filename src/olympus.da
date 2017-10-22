@@ -134,10 +134,12 @@ class Olympus(process):
 
     def receive(msg=(GET_CONFIG, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
+        logging.info("Olympus has received config request from client: " + str(client))
         if validate_client(signed_message):
             config = craft_client_config(client)
             print('Will be sending config to ', str(client))
             send((SEND_CONFIG, config), to=client)
+            logging.info("Olympus has validated client: "+ str(client))
             logging.info("Olympus has sent config to client: "+ str(client))
 
     def init_logger():
@@ -146,7 +148,6 @@ class Olympus(process):
                 '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory, \
                 'olympus.log'), filemode='w', level=logging.INFO)
-
 
     def run():
         init_logger()
