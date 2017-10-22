@@ -12,6 +12,10 @@ def generate_key_pair():
     key = RSA.generate(1024, random_generator)
     return key
 
+def test_json_handler():
+    test_json = open('test.json', 'w')
+    return test_json 
+        
 def main():
     option_parser = OptionParser()
     option_parser.add_option("--test_case_name", dest='test_case', help = 'test case name in the config file that should be run', metavar='TESTCASE')
@@ -40,15 +44,17 @@ def main():
 
     client_dict = {}
     client_keys = {}
+    test_json_f = test_json_handler()
     for i ,c in enumerate(new_clients):
         unique_id = uuid.uuid4().hex
         client_dict[unique_id] = c
         crypt_key = generate_key_pair()
         client_keys[unique_id] = crypt_key.publickey()
+        #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_handler()))
+        #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_f))
         setup(c, (olympus, unique_id, crypt_key, test_case))
 
 
     setup(olympus, (client_dict, new_clients, client_keys, test_case))
-
     start(olympus)
     start(new_clients)

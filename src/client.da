@@ -35,6 +35,7 @@ class Client(process):
         self.test_case = test_case
         print('Client got key ', self.crypt_key)
         self.T = 3
+        #self.test_log = test_log
 
 
     def client_request_failure(message_number, which_replica):
@@ -163,14 +164,15 @@ class Client(process):
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')
                 retransmission_request(payload)
-
+    
     def receive(msg=('result', something), from_=c):
         if validate_result_proof(something):
             self.request_number += 1
         else:
             print('Invalid result_proof')
         print(str(client_id) + ' has received: ' + str(something[0]))
-
+        with open('test.json', 'w') as test_log:
+            test_log.write(json.dumps(something[0]))
 
     def start_over():
         print('Start Over')
