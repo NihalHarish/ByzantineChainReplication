@@ -50,7 +50,7 @@ class Olympus(process):
                 failure_trigger, failure_action = failure_operation
                 failure_trigger_msg = re.search('\w+', \
                         failure_trigger).group()
-                failure_addresses_regex  = re.search('(\d+),(\d+)',\
+                failure_addresses_regex  = re.search(r'(\d+),(\d+)',\
                         failure_trigger)
                 failure_from = int(failure_addresses_regex.group(1))
                 failure_message_number = int(failure_addresses_regex.group(2))
@@ -99,9 +99,9 @@ class Olympus(process):
         self.replica_list = replicas
 
     def parse_workload(workload):
-        match = re.match('^[^\(]+', workload).group()
+        match = re.match(r'^[^\(]+', workload).group()
         if match == 'pseudorandom':
-            seed, size = re.search('\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed, size = re.search(r'\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
             seed  = int(seed)
             size  = int(size)
             workload = config_handler.pseudorandom(seed, size)

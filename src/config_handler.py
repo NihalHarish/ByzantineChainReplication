@@ -79,12 +79,12 @@ def parse_config(config):
     failure_keys = []
     # Generate Psuedorandom Workload
     for key in config:
-        regex_match = re.search('workload\[(\d+)\]', key)
+        regex_match = re.search(r'workload\[(\d+)\]', key)
         if regex_match is not None:
             workload_keys.append(key)
             workload = config[key]
             workloads.insert(int(regex_match.group(1)), workload)
-        regex_match = re.search('failures\\[(\\d+),(\\d+)\]', key)
+        regex_match = re.search(r'failures\\[(\\d+),(\\d+)\]', key)
         if regex_match is not None:
             config_number = regex_match.group(1)
             replica_number = regex_match.group(2)

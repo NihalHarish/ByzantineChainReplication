@@ -144,7 +144,8 @@ class Client(process):
             signature = sign_message()
             send(('please_work', payload, signature), to=head)
             req_id = self.request_number
-            if await(some(received(('result', finale_payload), from_=self.tail),\
+            if await(some(received(('result', finale_payload),\
+            from_=self.tail),\
             has= finale_payload[-1] == req_id )):
                 pass
             elif timeout(self.request_timeout):
@@ -174,11 +175,13 @@ class Client(process):
         make_operation_request()
 
     def init_logger():
-        logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)),\
+        logging_directory = os.path.join(os.path.dirname(os.path.abspath\
+                                        (__file__)),\
                                          '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory,\
                                                   'client.log'),\
-                                                  filemode='w', level=logging.DEBUG)
+                                                  filemode='w',\
+                                                  level=logging.DEBUG)
 
     def build_replica_keys():
         for replica_id, public_key in self.config['replica_keys'].items():
