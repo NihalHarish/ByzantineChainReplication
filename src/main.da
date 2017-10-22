@@ -7,18 +7,25 @@ from optparse import OptionParser
 import config_handler
 import os
 
+
 def generate_key_pair():
     random_generator = Random.new().read
     key = RSA.generate(1024, random_generator)
     return key
 
+
 def test_json_handler():
     test_json = open('test.json', 'w')
     return test_json
 
+
 def main():
     option_parser = OptionParser()
-    option_parser.add_option("--test_case_name", dest='test_case', help = 'test case name in the config file that should be run', metavar='TESTCASE')
+    option_parser.add_option(
+        "--test_case_name",
+        dest='test_case',
+        help='test case name in the config file that should be run',
+        metavar='TESTCASE')
     (options, args) = option_parser.parse_args()
     test_case = None
 
@@ -29,7 +36,10 @@ def main():
     else:
         test_case = options.test_case
 
-    logging_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/{0}'.format(test_case))
+    logging_directory = os.path.join(
+        os.path.dirname(
+            os.path.abspath(__file__)),
+        '../logs/{0}'.format(test_case))
     if not os.path.isdir(logging_directory):
         os.mkdir(logging_directory)
 
@@ -40,12 +50,14 @@ def main():
     config(clock='Lamport')
     olympus = new(Olympus, at='OlympusNode')
 
-    new_clients = list(new(Client, num= int(config['num_client']), at='ClientNode')) # TODO: read from config
+    new_clients = list(new(Client,
+                           num=int(config['num_client']),
+                           at='ClientNode'))  # TODO: read from config
 
     client_dict = {}
     client_keys = {}
     test_json_f = test_json_handler()
-    for i ,c in enumerate(new_clients):
+    for i, c in enumerate(new_clients):
         unique_id = uuid.uuid4().hex
         client_dict[unique_id] = c
         crypt_key = generate_key_pair()
@@ -53,7 +65,6 @@ def main():
         #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_handler()))
         #setup(c, (olympus, unique_id, crypt_key, test_case, test_json_f))
         setup(c, (olympus, unique_id, crypt_key, test_case))
-
 
     setup(olympus, (client_dict, new_clients, client_keys, test_case))
     start(olympus)

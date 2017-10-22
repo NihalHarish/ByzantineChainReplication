@@ -3,4 +3,3 @@ src/__pycache__/
 *.py
 *.swp
 *.log
-logs/*
