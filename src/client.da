@@ -183,7 +183,7 @@ class Client(process):
                                         (__file__)),\
                                          '../logs/{0}'.format(test_case))
         logging.basicConfig(filename=os.path.join(logging_directory,\
-                                                  'client.log'),\
+                                                  'client_{0}.log'.format(client_id)),\
                                                   filemode='w',\
                                                   level=logging.DEBUG)
 
