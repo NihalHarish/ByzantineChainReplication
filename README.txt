@@ -111,4 +111,10 @@ SUM:                             9            173             14           1545
 ---------------------------------------------------------------------------------------------
 
 
-LANGUAGE FEATURE USAGE: <nihal>
+LANGUAGE FEATURE USAGE:
+    
+    1. List Comprehensions : 1
+    2. Dictionary Comprehensions : 0
+    3. Set Comprehensions : 0
+    4. aggregations : 1
+    5. quantifications : 8
