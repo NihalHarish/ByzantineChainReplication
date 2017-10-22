@@ -1,23 +1,207 @@
-How to run tests:
-
-    python test_suite.py --test_case_name=<name_of_the_test_case>
-
-The test_suite.py program loads test cases from config.csv
-
-To add a test case:
-    1. Specify the test paramaters under the line test_case_name = <test_case_name>
-    2. Also, specify a test_dict, which will be matched with the result received by the client.
+Name of the CONFIGURATION file: src/config.csv
+Logs: 
+    Logs will be generated at logs/<test_case_name>/<replica/olympus/client>.log 
 
 
-Example:
+How to add Test Case:
+    1. Open src/config.csv
+    2. Specify the test paramaters under the line test_case_name = <test_case_name>
+    3. Also, specify a test_dict, which will be matched with the result received by the client.
 
-config.csv
 
-test_case_name = test1
-...
-...
-...
-test_dict = {"jedi": "luke", "movie": "star wars"}
+How to verify that dictionary contains expected content at the end of each test case:
 
-To the test the above testcase, run:
-    python test_suite.py --test_case_name=test1
+    1. python test_suite.py --test_case_name=<name_of_the_test_case>
+
+    Expected output:
+    ```
+        Verified
+    ```
+
+Description about the programmatic check of correctness of dictionary:
+
+    The test_suite.py program loads test cases from config.csv and extracts the test_dict for the corresponding test case
+    and compares it to the resultant dictionary obtained at test.json.
+
+    How does it work ?
+
+    The tail replica informs the client about the current state of dictionary. The client writes it to test.json.
+    By the end of all operations, the most updated state of dictionary will be written to the test.json .
+    Then we compare that result with the expeceted result mentioned in the config file.
+
+
+    When does it not work?
+
+    When the client generates pseudorandom workload, we donot know what to compare the resultant_dictionary with. 
+
+
+
+Tests:
+
+    =================================================================================================================================
+    Test_1: Test case 1 scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+    =================================================================================================================================
+    Test_2: Test case 2 scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+    =================================================================================================================================
+    Test_3: Test case 3 scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+    =================================================================================================================================
+    Test_4: Test case 4 scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+    =================================================================================================================================
+    Test_5: Test case 5 scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+    =================================================================================================================================
+    stresstest: Test case stresstest scenario: 
+
+        Workload => Since there are three clients, we have 3 workloads as
+            1 workload[0] = pseudorandom(233,100) [Workload for 0th client, creates 100 pseudorandom requests with 233 as seed value]
+            2 workload[1] = semi colon separated dictionary operations [Workload for 1st Client]
+            3 workload[2] = same as 6.2 [Workload for 2nd Client]
+
+        failures =>  At 0th configuration, the 1st replica(not head) will trigger failure. 
+                        When it receives the 1st result_shuttle from Client 2, it will change_result()
+
+    Example: 
+    -----------------------------------------------------------------------------
+    test_case_name = test1
+    t = 2
+    num_client = 3
+    client_timeout = 3000
+    head_timeout = 3000
+    nonhead_timeout = 3000
+    workload[0] = pseudorandom(233,100)
+    workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+    workload[2] = put('jedi','luke skywalker'); slice('jedi','0:4'); get('jedi')
+    failures[0,1] = result_shuttle(2,1),change_result()
+    test_dict = {"jedi": "luke", "movie": "star wars", "aim": " guilt things"}
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
