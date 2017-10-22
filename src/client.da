@@ -141,19 +141,22 @@ class Client(process):
             if validate_result_proof(finale_result):
                 self.request_number += 1
             else:
-                print('Invalid Result Proof')
+                print('Invalid Result Proof: Informing Olympus: Exit')
+                sys.exit(0)
 
         elif some(received(('error', _))):
-            print('Some replica is in immutable stage')
+            print('Some replica is in immutable stage: Informing Olympus: Exit')
             logging.info(
                 str(client_id) +
-                ': Some replica is in immutable stage')
+                ': Some replica is in immutable stage: Informing Olympus: Exit')
+            sys.exit(0)
 
         elif timeout(self.request_timeout):
-            print('TIMEOUT HAS EXPIRED YET AGAIN')
+            print('Timeout expired yet again: Informing Olympus: Exit')
             logging.info(
                 str(client_id) +
-                ' : TIMEOUT HAS EXPIRED AFTER RETRANSMISSION')
+                ' : TIMEOUT expired yet again: Informing Olympus: Exit')
+            sys.exit(0)
 
     def make_operation_request():
         workload = self.config['workload']
@@ -177,7 +180,9 @@ class Client(process):
         if validate_result_proof(result):
             self.request_number += 1
         else:
-            logging.info('Invalid result_proof from tail')
+            logging.info('Invalid result_proof from tail: Informing Olympus: Exit')
+            print('Invalid result_proof from tail: Informing Olympus: Exit')
+            sys.exit(0)
         print(str(client_id) + ' has received: ' + str(result[0]))
         logging.info(str(client_id) + ' has received: ' + str(result[0]))
         with open('test.json', 'w') as test_log:
