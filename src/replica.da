@@ -83,7 +83,8 @@ class Replica(process):
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
         self.timeout_val = timeout_val
-        self.failures = failures  # [(failure_trigger_msg, from_which_client, message_number, failure_action)]
+        # [(failure_trigger_msg, from_which_client, message_number, failure_action)]
+        self.failures = failures
         self.failure_trigger_dict = {
             CHANGE_RESULT: False,
             CHANGE_OPERATION: False,
@@ -186,16 +187,18 @@ class Replica(process):
 
     def run():
         init_logger()
-        # logging.info("Replica is running")
-        logger.info('REPLICA IS RUNNING DUDE')
-        print("REPLICA IS RUNNING")
+        logger.info('{0}: Replica is running '.format(self))
+        print('{0}: Replica is running'.format(self))
         await(False)
 
     def _change_result(result_shuttle_proof):
         '''
             this replica uses the hash of 'OK', instead of the hash of the actual result, in its result statement.
         '''
-        # generate_result_proof(status, True)
+        logger.error('{0}: Replica is running failure => \
+                change_result()'.format(self))
+        print('{0}: Replica is running failure => \
+                change_result()'.format(self))
         bad_result_shuttle_proof = result_shuttle_proof.copy()
         updated_result_statement = None
         old_result_statement = None
@@ -208,13 +211,18 @@ class Replica(process):
                     signature, (type_msg, compute_hash_of_ok(), status), replica_id)
         bad_result_shuttle_proof.remove(old_result_statement)
         bad_result_shuttle_proof.append(updated_result_statement)
-        print(compute_hash_of_ok())
+        print('Hash of OK =>', compute_hash_of_ok())
         return bad_result_shuttle_proof
 
     def _change_operation(operation):
         '''
             replica uses get('x') as the operation in its order statement and result statement
         '''
+        logger.error('{0}: Replica is running failure => \
+                change_operation()'.format(self))
+        print('{0}: Replica is running failure => \
+                change_operation()'.format(self))
+
         bad_operation = operation.copy()
         bad_operation['opr'] = 'get'
         bad_operation['payload'] = operation['payload'].copy()
@@ -226,6 +234,10 @@ class Replica(process):
         '''
             omit the head's result statement from the result proof.
         '''
+        logger.error('{0}: Replica is running failure => \
+                drop_result_stmt()'.format(self))
+        print('{0}: Replica is running failure => \
+                drop_result_stmt()'.format(self))
         dropped_result_shuttle_proof = result_shuttle_proof.copy()
         head_result_statement = None
         for proof in dropped_result_shuttle_proof:
@@ -236,6 +248,9 @@ class Replica(process):
         return dropped_result_shuttle_proof
 
     def update_current_slot_number():
+        logger.info(
+            'Incrementing the current slot number to: {0}'.format(
+                self.current_slot + 1))
         self.current_slot += 1
 
     def compute_running_state_hash():
@@ -246,7 +261,6 @@ class Replica(process):
         statement = ('result', result_hash, status)  # adds status also
         return statement
 
-    # ('result', result_hash, status)
     def sign_result_statement(result_statement):
         result_stm = json.dumps(result_statement).encode('utf-8')
         result_statement_hash = SHA256.new(result_stm).digest()
@@ -294,13 +308,13 @@ class Replica(process):
             update_current_slot_number()
             status = perform_operation(operation)
             if failure_trigger_dict[CHANGE_OPERATION]:
+                logger.info('Failure is triggered now: \
+                        Change operation to get(x): {0}'.format(self.result_proof))
+                print('Failure is triggered now: \
+                        Change operation to get(x)')
                 failure_trigger_dict[CHANGE_OPERATION] = False
                 operation = _change_operation(operation)
-                # print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING_THE_OPERATION TO GET(X) IN HANDLE_OPERATION', self.result_proof)
             generate_result_proof(status)
-            # if failure_action is not None and failure_action == CHANGE_RESULT:
-            #     _change_result(status)
-            #     print('OH MY GOD >>>>>> ITS ACTUALLY CHANGING_THE_RESULT TO HASH(OK)', self.result_proof)
             generate_order_proof(operation)
             update_history(self.current_slot, operation, self.order_proof)
             client_id, client_request_id = client_info
@@ -315,18 +329,12 @@ class Replica(process):
                 client_info_checksum,
                 client_id,
                 client_request_id)
-            # if failure_action is not None and failure_action == DROP_RESULT_STMT:
-            #     dropped_result_proof = _drop_result_stmt()
-            #     shuttle_msg[SHUTTLE_RESULT_PROOF] = dropped_result_proof
-            #     print('OH MY GOD >>>>>> ITS ACTUALLY DROPPING THE HEAD_RESULT_STMT ', dropped_result_proof)
-
             dispatch_shuttle_message(shuttle_msg)
 
     def compute_hash_of_ok():
         return SHA256.new('OK'.encode('utf-8')).hexdigest()
 
     def generate_result_proof(status, fail=False):
-        # _put(('movie', 'Bangalore Days'))
         if fail:
             result_hash = compute_hash_of_ok()
         else:
@@ -337,7 +345,6 @@ class Replica(process):
 
     def generate_order_proof(operation):
         slot = self.current_slot
-        # operation = 'put(\'movie\':\'Bangalore Days\')'
         order_statement = generate_order_statement(slot, operation)
         signed_order_statement = sign_order_statement(order_statement)
         add_to_order_proof(signed_order_statement)
@@ -352,12 +359,10 @@ class Replica(process):
 
     def dispatch_shuttle_message(shuttle_message):
         print(self, 'sending shuttle message to ', next_replica)
-        # logging.info(str(self)+ ' sending shuttle message to ' +  str(next_replica))
-        # logging.info('dispatch shuttle message')
-        logger.info('dispatch shuttle message')
+        logger.info(
+            '{0} sending shuttle message to {1}'.format(
+                self, next_replica))
         send((SHUTTLE, shuttle_message), to=next_replica)
-        # TODO: This needs to wait till it receives a complete result proof
-        # from its next replica
         await(False)
 
     def check_order_proof_validity(order_proof_list):
@@ -377,9 +382,9 @@ class Replica(process):
                             operation != statement_operation:
                         return False
             else:
-                print('it messed up big, the verification failed ',
+                logger.error('Order proof verification failed')
+                print('Order proof verification failed ',
                       replica_id)
-
         return True
 
     def populate_order_proof(order_proof_list):
@@ -392,6 +397,8 @@ class Replica(process):
 
     def check_result_proof_validity(result_proof_list):
         # print(self, result_proof_list)
+        logger.info(
+            'Checking result proof validity of {0}'.format(result_proof_list))
         hashed_running_state = compute_running_state_hash()
         for result_statement in result_proof_list:
             # (signature, ('result', result_hash, status), replica_id)
@@ -403,7 +410,8 @@ class Replica(process):
             public_key = self.public_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
                 if hashed_running_state != result_hash:
-                    print('>>>>>>>>Completely wrong result bro')
+                    logger.error('Result proof is INCONSISTENT')
+                    print('>>>>>>>>Result proof is INCONSISTENT')
                     return False
             else:
                 return False  # wrong sender
@@ -434,8 +442,6 @@ class Replica(process):
             handle_operation(operation, client_info)
 
     def check_failure(type_failure, payload):
-        # if type_failure == 'shuttle' or type_failure == 'result_shuttle' or
-        # type_failure == 'client_request':
         for failure_tuple in self.failures:
             if type_failure in failure_tuple:
                 _, from_which_client, \
@@ -457,15 +463,18 @@ class Replica(process):
                             message_number and \
                             self.client_list.index(client_process) == \
                             from_which_client:
-                        print('triggering the FORWAREDED REQUEST')
+                        logger.info('A failure has been scheduled to run next')
+                        print('triggering forwarded request failure next')
                         failure_trigger_dict[action] = True
                 elif req_id == message_number and \
                         self.client_list.index(client_process) == \
                         from_which_client:
-                    print('triggering the freaking action during ',
+                    logger.info(
+                        'Scheduled failure during {0}'.format(type_failure))
+                    print('Scheduled failure action during ',
                           type_failure, ' and the client index is ',
                           from_which_client, ' and for request number ',
-                          req_id, self.isHead)
+                          req_id)
                     failure_trigger_dict[action] = True
 
     def receive(msg=('shuttle', payload), from_=prev_replica):
@@ -484,18 +493,21 @@ class Replica(process):
                 status = perform_operation(operation)
                 if failure_trigger_dict[CHANGE_OPERATION]:
                     failure_trigger_dict[CHANGE_OPERATION] = False
-                    print(order_proof_shuttle)
+                    logger.info(
+                        'Before change_operation(), order proof was {0}'.format(order_proof_shuttle))
+                    print('Before change_operation(), order proof was',
+                          order_proof_shuttle)
                     operation = _change_operation(operation)
+                    logger.info(
+                        'change_operation() has changed operation to {0}'.format(operation))
                     print(
-                        'OH MY GOD >>>>>>>> ITS ACTUALLY CHANGING THE OPERATION TO GET(\'X\') IN SHUTTLE_MESSAGE',
+                        'CHANGING THE OPERATION TO GET(\'X\') IN SHUTTLE_MESSAGE',
                         operation)
                 result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
                 if check_result_proof_validity(result_proof_shuttle):
                     generate_order_proof(operation)
                     populate_order_proof(order_proof_shuttle)
                     generate_result_proof(status)
-                    # if failure_action is not None and failure_action == CHANGE_RESULT:
-                    #     _change_result(status)
                     populate_result_proof(result_proof_shuttle)
                     update_history(self.current_slot, operation,
                                    self.order_proof)
@@ -511,9 +523,6 @@ class Replica(process):
                         checksum,
                         client_id,
                         client_request_id)
-                    # if failure_action is not None and failure_action == DROP_RESULT_STMT:
-                    #     dropped_result_proof = _drop_result_stmt()
-                    #     shuttle_msg[SHUTTLE_RESULT_PROOF] = dropped_result_proof
                     if self.isTail:
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
@@ -525,8 +534,10 @@ class Replica(process):
                             result_shuttle_msg[
                                 SHUTTLE_RESULT_PROOF] = wrong_result_statement
                             self.result_proof = wrong_result_statement
+                            logger.info('Changing the result to hash(ok) at \
+                                    tail {0}'.format(self.result_proof))
                             print(
-                                'OH MY GOD >>>>>> ITS ACTUALLY CHANGING THE RESULT TO HASH(OK) AT TAIL',
+                                'CHANGING THE RESULT TO HASH(OK) AT TAIL',
                                 self.result_proof)
 
                         if failure_trigger_dict[DROP_RESULT_STMT]:
@@ -536,8 +547,11 @@ class Replica(process):
                             result_shuttle_msg[
                                 SHUTTLE_RESULT_PROOF] = dropped_result_proof
                             self.result_proof = dropped_result_proof
+                            logger.info(
+                                'Dropping the head statement at tail {0}'.format(
+                                    self.result_proof))
                             print(
-                                'OH MY GOD >>>>>> ITS ACTUALLY DROPPING THE HEAD AT TAIL',
+                                'DROPPING THE HEAD AT TAIL',
                                 self.result_proof)
 
                         # COMMENT THIS FOR FORWARDED REQUEST
@@ -551,16 +565,23 @@ class Replica(process):
                                client_request_id)),
                              to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail.\
-                                Running state: ' + str(self.running_state))
+                                Running state: {0}'.format(str(self.running_state)))
                         # time.sleep(10)  Uncomment this for forwarded_request
                         send(('result_shuttle', result_shuttle_msg),
                              to=prev_replica)
                     else:
                         dispatch_shuttle_message(shuttle_msg)
                 else:
+                    logger.error('Replica becomes immutable as result \
+                            proof validation failed')
+                    print('Replica becomes immutable as result \
+                            proof validation failed')
                     self.mode = REPLICA_IMMUTABLE
             else:
-                print('order proof validation has failed')
+                logger.error('Replica becomes immutable as order \
+                        proof validation failed')
+                print('Replica becomes immutable as order \
+                        proof validation failed')
                 self.mode = REPLICA_IMMUTABLE
         else:
             self.mode = REPLICA_IMMUTABLE
@@ -585,9 +606,10 @@ class Replica(process):
         return True
 
     def receive(msg=('result_shuttle', payload), from_=next_replica):
-        print(self, ': Receiving result shuttle')
-        # logging.info(str(self) + ': Receiving result shuttle')
-        logger.info(str(self) + ': Receiving result shuttle')
+        print(self, ': Receiving result shuttle from ', next_replica)
+        logger.info(
+            '{0}: Receiving result shuttle from {1}'.format(
+                self, next_replica))
         complete_result_proof = payload[SHUTTLE_RESULT_PROOF]
 
         if self.failures is not None:
@@ -604,6 +626,9 @@ class Replica(process):
                 wrong_result_statement = _change_result(
                     result_shuttle[SHUTTLE_RESULT_PROOF])
                 result_shuttle[SHUTTLE_RESULT_PROOF] = wrong_result_statement
+                logger.info(
+                    'New wrong result stm is {0}'.format(
+                        result_shuttle[SHUTTLE_RESULT_PROOF]))
                 print(
                     'This is the new wrong result_stm AT RESULT_SHUTTLE',
                     result_shuttle[SHUTTLE_RESULT_PROOF])
@@ -613,13 +638,17 @@ class Replica(process):
                 dropped_result_proof = _drop_result_stmt(
                     result_shuttle[SHUTTLE_RESULT_PROOF])
                 result_shuttle[SHUTTLE_RESULT_PROOF] = dropped_result_proof
-                print('OH MY GOD >>>>>> ITS ACTUALLY DROPPING THE \
-                        HEAD_RESULT_STMT AT RESULT_SHUTTLE',
-                      dropped_result_proof, head_replica_id)
+                logger.info(
+                    'Dropping the head result statement {0} and head replica id is {1}'.format(
+                        dropped_result_proof, head_replica_id))
+                print(
+                    'DROPPING THE HEAD_RESULT_STMT AT RESULT_SHUTTLE',
+                    dropped_result_proof,
+                    head_replica_id)
 
             if checksum in self.retransmission:
-                print('the checksum is present in retransmission,\
-                        will have to send the message to client')
+                logger.info('Sending the result shuttle to client ')
+                print('Sending the result shuttle to client ')
                 client_id = self.retransmission[checksum]
                 reply_to_client = self.clients[client_id]
                 proof = result_shuttle[SHUTTLE_RESULT_PROOF]
@@ -632,15 +661,18 @@ class Replica(process):
             if not isHead:
                 send(('result_shuttle', result_shuttle), to=prev_replica)
             elif isHead:
+                logger.info('Received the complete result_shuttle ')
                 print('Received the complete result_shuttle ',
                       len(result_shuttle[SHUTTLE_RESULT_PROOF]))
 
         else:
+            logger.info('Result proof validation is wrong')
             print('RESULT PROOF IS WRONG ')
 
     def receive(msg=('retransmission', retrans_payload, client_signature),
                 from_=c):
         print('Received retransmission request')
+        logger.info('Received retransmission req')
         if not validate_client_signature(client_signature):
             return
         client_info = (retrans_payload['client_id'],
@@ -661,12 +693,15 @@ class Replica(process):
             self.retransmission[checksum] = client_info[0]
 
         if self.mode == REPLICA_IMMUTABLE:
-            # send(('error','immutable'), to=c)
             reply_to_client = self.clients[client_id]
+            logger.info('sending error to client as it is immutable')
             send(('error', 'immutable'), to=reply_to_client)
 
         elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
-            print(self, 'sending data to client from its cache', checksum)
+            print(self, 'sending result to client from its\
+                    result_proof_cache', checksum)
+            logger.info(self, 'sending result to client from \
+                    its result_proof cache')
             proof = self.result_shuttle_cache[checksum][SHUTTLE_RESULT_PROOF]
             res = self.result_shuttle_cache[checksum][RESULT]
             status = self.result_shuttle_cache[checksum][STATUS]
@@ -682,6 +717,9 @@ class Replica(process):
                 self.failure_trigger_dict[DROP_RESULT_STMT] = False
                 proof = _drop_result_stmt(proof)
             print('send this data to client ', (res, status))
+            logger.info(
+                'sending this result to client {0}'.format(
+                    (res, status)))
             send(('result', (res, proof, status, client_request_id)),
                  to=reply_to_client)
             # after sending the result, remove the entry from retransmission
@@ -689,21 +727,30 @@ class Replica(process):
         else:
             if not isHead:
                 print('forwarding request to the head')
+                logger.info('forwarding request to the head')
                 send(('retransmission', retrans_payload), to=head_replica)
                 if await(some(received(('result_shuttle', payload)))):
                     print('Retransmission request being processed @nonhead')
+                    logger('Retransmission request being processed @nonhead')
                 elif timeout(self.timeout_val):
-                    print ('this happens at @nonhead')
-                    print('Have to send reconfigure message to Olympus')
+                    print ('Timeout occured at @nonhead')
+                    logger.error('Timeout occured at @nonhead')
+                    print('Timeout @nonhead: Have to send \
+                            reconfigure message to Olympus')
+                    logger.error('Timeout @nonhead: Have to send \
+                            reconfigure message to Olympus')
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
                     handle_operation(retrans_payload, client_info)
                 if await(some(received(('result_shuttle', payload)))):
                     print('Retransmission request being processed @head')
+                    logger.info('Retransmission request being processed @head')
                 elif timeout(self.timeout_val):
-                    print ('this happens at @head')
-                    print('Have to send reconfigure message to Olympus')
+                    logger.info('Timeout expired at Head: \
+                            Have to send reconfigure message to Olympus')
+                    print('Timeout expird at Head: \
+                            Have to send reconfigure message to Olympus')
 
     def generate_client_result_message(result_shuttle):
         complete_result_proof = result_shuttle[SHUTTLE_RESULT_PROOF]
