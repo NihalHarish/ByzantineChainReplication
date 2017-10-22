@@ -66,7 +66,7 @@ def parse_failure_operations(operation_str):
     operations_list = []
     operations_tuple_list = operation_str.split(';')
     for operation in operations_tuple_list:
-        operations_tuple = re.split(',\s*(?![^()]*\))', operation)
+        operations_tuple = re.split(r',\s*(?![^()]*\))', operation)
         operations_list.append(tuple(operations_tuple))
         print('Operations Tuple: ', operations_tuple)
     return operations_list
@@ -79,7 +79,7 @@ def parse_config(config):
     failure_keys = []
     # Generate Psuedorandom Workload
     for key in config:
-        regex_match = re.search('workload\[(\d+)\]', key)
+        regex_match = re.search(r'workload\[(\d+)\]', key)
         if regex_match is not None:
             workload_keys.append(key)
             workload = config[key]

@@ -1,0 +1,23 @@
+How to run tests:
+
+    python test_suite.py --test_case_name=<name_of_the_test_case>
+
+The test_suite.py program loads test cases from config.csv
+
+To add a test case:
+    1. Specify the test paramaters under the line test_case_name = <test_case_name>
+    2. Also, specify a test_dict, which will be matched with the result received by the client.
+
+
+Example:
+
+config.csv
+
+test_case_name = test1
+...
+...
+...
+test_dict = {"jedi": "luke", "movie": "star wars"}
+
+To the test the above testcase, run:
+    python test_suite.py --test_case_name=test1

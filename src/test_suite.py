@@ -6,7 +6,11 @@ import sys
 if __name__ == '__main__':
 
     option_parser = OptionParser()
-    option_parser.add_option("--test_case_name", dest='test_case',help = 'test case name in the config file that should be tested', metavar='TESTCASE')
+    option_parser.add_option("--test_case_name",\
+                             dest='test_case',\
+                             help = 'test case name in the config \
+                                    file that should be tested',\
+                             metavar='TESTCASE')
     (options, args) = option_parser.parse_args()
     test_case = None
 
