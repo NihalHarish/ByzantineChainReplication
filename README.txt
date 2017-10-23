@@ -1,6 +1,7 @@
 PLATFORM: 
     Primary Operating System :MAC OS/X, Fedora 25
-    VMs: Ubuntu 
+    VMs: Ubuntu 16.04
+    Docker : Community Edition 17.09.0
     DistAlgo Version: 1.0.9
     Python: Python 3.5.4
 

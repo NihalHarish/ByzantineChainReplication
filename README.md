@@ -34,7 +34,7 @@
 - [x] fault-injection: required failures (1 pt each)  
 
 ### MULTI-HOST EXECUTION  
-- [ ] processes are spread across multiple hosts  
+- [x] processes are spread across multiple hosts  
 
 ### CONFIGURATION FILES  
 - [x] support configuration files specified in project.txt (if not, causing inability to test some functionality with instructor's testcases, also lose 1/3 of points for it)  
