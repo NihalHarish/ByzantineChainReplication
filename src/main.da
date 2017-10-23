@@ -61,12 +61,12 @@ def main():
     olympus_key = generate_key_pair()
     olympus_public_key = olympus_key.publickey()
 
-    for i, c in enumerate(new_clients):
+    for client_index, client in enumerate(new_clients):
         unique_id = uuid.uuid4().hex
-        client_dict[unique_id] = c
+        client_dict[unique_id] = client
         crypt_key = generate_key_pair()
         client_keys[unique_id] = crypt_key.publickey()
-        setup(c, (olympus, unique_id, crypt_key, test_case, olympus_public_key))
+        setup(client, (olympus, unique_id, client_index, crypt_key, test_case, olympus_public_key))
 
     setup(olympus, (client_dict, new_clients, client_keys, test_case, olympus_key))
     start(olympus)

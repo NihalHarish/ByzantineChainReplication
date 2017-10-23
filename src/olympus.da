@@ -151,8 +151,8 @@ class Olympus(process):
         config = config_handler.load_config()[test_case]
         client_config = {}
         client_config['client_timeout'] = config['client_timeout']
-        client_config['workload'] = parse_workload(
-            self.config['workload'][client_index])
+        #client_config['workload'] = parse_workload(
+        #    self.config['workload'][client_index])
         client_config['replica_list'] = self.replica_list
         client_config['head_node'] = self.head_node
         client_config['tail_node'] = self.tail_node

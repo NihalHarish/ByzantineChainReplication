@@ -18,7 +18,7 @@ CONFIG_RECEIVED = 'take_config'
 
 class Client(process):
 
-    def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str, olympus_public_key: instance):
+    def setup(olympus: instance, unique_id: str, client_index: int, crypt_key: instance, test_case: str, olympus_public_key: instance):
         self.olympus = olympus
         self.config = None
         self.request_number = 0
@@ -34,7 +34,7 @@ class Client(process):
         print('Client got key ', self.crypt_key)
         self.T = 3
         self.olympus_public_key = olympus_public_key
-        #self.test_log = test_log
+        self.client_index - client_index
 
     def validate_olympus(message):
         signature, nonce = message
@@ -95,9 +95,20 @@ class Client(process):
     def get_head(config):
         return config['head_node']
 
+    def parse_pseudorandom_workloads(workload):
+        match = re.match(r'^[^\(]+', workload).group()
+        if match == 'pseudorandom':
+            seed, size = re.search(
+                r'\(([^)]+)\)', workload).group()[1:-1].replace("'", "").split(',')
+            seed = int(seed)
+            size = int(size)
+            workload = config_handler.pseudorandom(seed, size)
+        return workload
+        
     def parse_workload(workload):
+        workload = parse_pseudorandom_workloads(workload)
         workload_list = workload.split(';')
-        print('Workload List: ', workload_list)
+        print('Workload: ', workload_list)
         operation_set = []
         for work in workload_list:
             operation_set.append(work)
@@ -159,7 +170,8 @@ class Client(process):
             sys.exit(0)
 
     def make_operation_request():
-        workload = self.config['workload']
+        #workload = self.config['workload']
+        workload = config_handler.get_workload(self.client_index, self.test_case)
         operation_set = parse_workload(workload)
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
@@ -177,6 +189,7 @@ class Client(process):
                 retransmission_request(payload)
 
     def receive(msg=('result', result), from_=tail):
+        print('Result received from the tail by ' + str(client_id))
         if validate_result_proof(result):
             self.request_number += 1
         else:
@@ -187,6 +200,7 @@ class Client(process):
         logging.info(str(client_id) + ' has received: ' + str(result[0]))
         with open('test.json', 'w') as test_log:
             test_log.write(json.dumps(result[0]))
+            print(str(self.client_id) + " wrote " + str(result[0]))
 
     def start_over():
         print('Start Over')

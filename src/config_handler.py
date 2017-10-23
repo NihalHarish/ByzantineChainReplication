@@ -106,7 +106,13 @@ def parse_config(config):
     config['failures'] = failures
     return config
 
+
+def get_workload(index, test_case_name):
+    config = load_config()[test_case_name]['workload'][index]
+    return config
+
 if __name__ == '__main__':
-    config = load_config()
-    print(config)
+    #config = load_config()
+    #print(config)
+    print(get_workload(0, 'test1'))
     #print(pseudorandom(17, 10))
