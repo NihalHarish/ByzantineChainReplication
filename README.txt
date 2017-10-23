@@ -91,7 +91,8 @@ WORKLOAD GENERATION:
 
                         
 
-BUGS AND LIMITATIONS: Known list of bugs: <empty>
+BUGS AND LIMITATIONS: Known list of bugs:
+    1. Stack overflow during stress testing 
 
 CONTRIBUTIONS:
     Nirvik(nghosh) : Handled the replica module, signature validations, logs
