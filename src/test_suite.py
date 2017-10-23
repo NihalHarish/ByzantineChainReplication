@@ -38,14 +38,14 @@ if __name__ == '__main__':
         if client_data == test_value:
             pass
         else:
-            print(bcolors.FAIL, 'Verification failed', bcolors.ENDC)
+            print(bcolors.FAIL, '[Failed]', bcolors.ENDC)
             sys.exit(0)
     for key in test_value:
         if key in client_data:
-            print('checking key: ' +str(key)+ " for value: " + str(test_value[key]))
+            # print('checking key: ' +str(key)+ " for value: " + str(test_value[key]))
             if client_data[key] == test_value[key]:
-                print(bcolors.OKGREEN, 'Verified', bcolors.ENDC)
+                print(bcolors.OKGREEN, '[Passed]', bcolors.ENDC, 'Status Key: ' +str(key)+ " for value: " + str(test_value[key]))
             else:
-                print(bcolors.FAIL, 'Verification Failed', bcolors.ENDC)
+                print(bcolors.FAIL, '[Failed]', bcolors.ENDC, 'Status Key: ' +str(key)+ " for value: " + str(test_value[key]))
         else:
-            print(bcolors.FAIL, 'Verification Failed', bcolors.ENDC)
+            print(bcolors.FAIL, '[Failed]', bcolors.ENDC)
