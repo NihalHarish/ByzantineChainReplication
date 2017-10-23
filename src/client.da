@@ -128,7 +128,8 @@ class Client(process):
 
         correct_replica = max(replica_correctness.values())
         if correct_replica >= self.T + 1:
-            print(str(self.client_id) + " : " + status + " " + str(result) + " " + str(correct_replica))
+            print(str(self.client_id) + " : " + status + " " +
+                  str(result) + " " + str(correct_replica))
             return True
         return False
 
@@ -180,7 +181,8 @@ class Client(process):
         if validate_result_proof(result):
             self.request_number += 1
         else:
-            logging.info('Invalid result_proof from tail: Informing Olympus: Exit')
+            logging.info(
+                'Invalid result_proof from tail: Informing Olympus: Exit')
             print('Invalid result_proof from tail: Informing Olympus: Exit')
             sys.exit(0)
         # print(str(client_id) + ' has received: ' + str(result[0]))

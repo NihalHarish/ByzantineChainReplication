@@ -68,6 +68,12 @@ def main():
         client_keys[unique_id] = crypt_key.publickey()
         setup(c, (olympus, unique_id, crypt_key, test_case, olympus_public_key))
 
-    setup(olympus, (client_dict, new_clients, client_keys, test_case, olympus_key))
+    setup(
+        olympus,
+        (client_dict,
+         new_clients,
+         client_keys,
+         test_case,
+         olympus_key))
     start(olympus)
     start(new_clients)

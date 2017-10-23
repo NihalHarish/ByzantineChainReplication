@@ -16,7 +16,7 @@ SEND_CONFIG = 'take_config'
 class Olympus(process):
 
     def setup(client_dict: instance, client_list: instance,
-            client_keys: instace, test_case: str, crypt_key: instance):
+              client_keys: instace, test_case: str, crypt_key: instance):
         self.public_key = None
         self.replicas_key_pairs = {}
         self.replicas_data = {}
@@ -172,14 +172,16 @@ class Olympus(process):
 
     def receive(msg=(GET_CONFIG, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
-        logging.info("Olympus has received config request from client: " + str(client))
+        logging.info(
+            "Olympus has received config request from client: " +
+            str(client))
         if validate_client(signed_message):
             config = craft_client_config(client)
             print('Will be sending config to ', str(client))
             signature = sign_message()
             send((SEND_CONFIG, config, signature), to=client)
-            logging.info("Olympus has validated client: "+ str(client))
-            logging.info("Olympus has sent config to client: "+ str(client))
+            logging.info("Olympus has validated client: " + str(client))
+            logging.info("Olympus has sent config to client: " + str(client))
 
     # def init_logger():
     #     logging_directory = os.path.join(os.path.dirname(\
