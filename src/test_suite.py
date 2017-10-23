@@ -39,13 +39,11 @@ if __name__ == '__main__':
             pass
         else:
             print(bcolors.FAIL, '[Failed]', bcolors.ENDC)
-            sys.exit(0)
     for key in test_value:
         if key in client_data:
-            # print('checking key: ' +str(key)+ " for value: " + str(test_value[key]))
             if client_data[key] == test_value[key]:
-                print(bcolors.OKGREEN, '[Passed]', bcolors.ENDC, 'Status Key: ' +str(key)+ " for value: " + str(test_value[key]))
+                print(bcolors.OKGREEN, '[Passed]', bcolors.ENDC, 'Key: ' +str(key)+ " Value: " + str(test_value[key]))
             else:
-                print(bcolors.FAIL, '[Failed]', bcolors.ENDC, 'Status Key: ' +str(key)+ " for value: " + str(test_value[key]))
+                print(bcolors.FAIL, '[Failed]', bcolors.ENDC, 'Key: ' +str(key)+ " Value: " + str(test_value[key]))
         else:
             print(bcolors.FAIL, '[Failed]', bcolors.ENDC)
