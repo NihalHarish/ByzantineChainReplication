@@ -52,7 +52,7 @@ def main():
 
     new_clients = list(new(Client,
                            num=int(config['num_client']),
-                           at='ClientNode'))  # TODO: read from config
+                           at='ClientNode'))
 
     client_dict = {}
     client_keys = {}
