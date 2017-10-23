@@ -10,22 +10,49 @@ INSTRUCTIONS:
     How to run the code (Go inside src/): 
 
     1. First we run main(Lets say test case 1)
+        
+        Single Node:
+            python3 -m da -n MainNode main.da --test_case=test1
+        
+        Multi Node:
+            python3 -m da -H <host_ip> -n MainNode main.da --test_case=test1
 
-        python3 -m da -n MainNode main.da --test_case=test1
 
     2. Then we run olympus
         2.1 If the workload is a lot, then we run the olympus as:
-            python3 -m da --message-buffer-size 10240000 -n OlympusNode -D olympus.da
+            
+            Single Node:
+                python3 -m da --message-buffer-size 10240000 -n OlympusNode -D olympus.da
+            
+            Multi Node:
+                python3 -m da --message-buffer-size 10240000 -H <host_ip> -R <main_node_ip> -n OlympusNode -D olympus.da
 
         2.2 If workload is not much, then we run olympus as:
-            python3 -m da -n OlympusNode -D olympus.da
+
+            Single Node:
+                python3 -m da -n OlympusNode -D olympus.da
+            
+            Multi Node:
+                python3 -m da -H <host_ip> -R <main_node_ip> -n OlympusNode -D olympus.da
+
 
     3. Then we run the client
         3.1 If the workload is a lot, then we run the client as:
-            python3 -m da --message-buffer-size 10240000 -n ClientNode -D client.da
-                                                                                      
+
+            Single Node:
+                python3 -m da --message-buffer-size 10240000 -n ClientNode -D client.da
+            
+            Multi Node:
+                python3 -m da --message-buffer-size 10240000 -H <host_ip> -R <main_node_ip> -n ClientNode -D client.da
+                
         3.2 If workload is not much, then we run client as:
-            python3 -m da -n ClientNode -D client.da
+
+            Single Node:
+                python3 -m da -n ClientNode -D client.da
+
+            Multi Node:
+                python3 -m da -H <host_ip> -R <main_node_ip> -n ClientNode -D client.da
+                
 
 WORKLOAD GENERATION:
     The algorithm we have used to generate our pseudorandom client workload is as follows:
@@ -63,8 +90,7 @@ WORKLOAD GENERATION:
 
                         
 
-BUGS AND LIMITATIONS: Known list of bugs:
-    1. Currently multi host is not working
+BUGS AND LIMITATIONS: Known list of bugs: <empty>
 
 CONTRIBUTIONS:
     Nirvik(nghosh) : Handled the replica module, signature validations, logs
