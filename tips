@@ -1,0 +1,10 @@
+Test case 1 has been modified to incorporate forwarded_requests
+
+one of the replicas changes the operation
+the client then forwards messages as retransmission
+So do the the other replicas
+that will trigger forwarded requests 
+
+To make forwarded request work, we trigger the change operation at head. 
+That will lead to inconsistent result at the next replica.
+Coz the state of hash will be different from the operation he performed

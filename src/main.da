@@ -20,6 +20,8 @@ def test_json_handler():
 
 
 def main():
+    import sys
+    sys.setrecursionlimit(1000000000)
     option_parser = OptionParser()
     option_parser.add_option(
         "--test_case_name",

@@ -203,6 +203,8 @@ class Olympus(process):
             level=logging.INFO)
 
     def run():
+        import sys
+        sys.setrecursionlimit(1000000000)
         init_logger()
         logging.info("Olympus has started")
         self.config = config_handler.load_config()[self.test_case]

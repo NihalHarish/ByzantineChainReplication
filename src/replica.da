@@ -71,6 +71,8 @@ class Replica(process):
         }
         self.failure_forward_request_number = {}
         self.test_case = test_case
+        self.checkpoint_limit = 5
+        self.checkpoint_count = 1
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -307,7 +309,8 @@ class Replica(process):
             Creates history statement of the form
             (slot_number, operation, order_proof)
         '''
-        history_statement = json.dumps((slot, operation, order_proof))
+        # history_statement = json.dumps((slot, operation, order_proof))
+        history_statement = (slot, operation, order_proof)
         return history_statement
 
     def add_to_history(history_statement):
@@ -478,6 +481,7 @@ class Replica(process):
             public_key = self.public_keys[replica_id]
             if public_key.verify(hashed_statement, signature):
                 if hashed_running_state != result_hash:
+                    print(result_proof_list)
                     logger.error('Result proof is INCONSISTENT')
                     print('>>>>>>>>Result proof is INCONSISTENT')
                     return False
@@ -513,7 +517,25 @@ class Replica(process):
             operation['payload']['key'] = client_payload['payload']['key']
             operation['payload']['value'] = client_payload['payload']['value']
             client_info = (operation['client_id'], operation['request_id'])
+            checkpoint_count += 1
+            if checkpoint_count % checkpoint_limit == 0:
+                print('the checkpoint count is ', checkpoint_count, checkpoint_limit)
+                checkpoint_statement = generate_checkpoint_statement()
+                signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
+                print('{0} sending checkpoint to {1} {2}'.format(self, next_replica, [signed_checkpoint_msg]))
+                send(('checkpoint', [signed_checkpoint_msg]), to=next_replica)
+                checkpoint_count = 1
             handle_operation(operation, client_info)
+
+    def generate_signed_checkpoint_message(checkpoint_statement):
+        chkpnt_stm = json.dumps(checkpoint_statement).encode('utf-8')
+        chkpnt_statement_hash = SHA256.new(chkpnt_stm).digest()
+        signature = self.passport.sign(chkpnt_statement_hash , '')
+        return (signature, checkpoint_statement, self.unique_id)
+
+    def generate_checkpoint_statement():
+        checkpoint_msg = (compute_running_state_hash(), self.current_slot)
+        return checkpoint_msg
 
     def check_failure(type_failure, payload):
         '''
@@ -543,7 +565,7 @@ class Replica(process):
                             self.client_list.index(client_process) == \
                             from_which_client:
                         logger.info('A failure has been scheduled to run next')
-                        print('triggering forwarded request failure next')
+                        print('AAAAAAAAAAAAAAAAAAA triggering forwarded request failure next')
                         failure_trigger_dict[action] = True
                 elif req_id == message_number and \
                         self.client_list.index(client_process) == \
@@ -772,6 +794,65 @@ class Replica(process):
         else:
             logger.info('Result proof validation is wrong')
             print('RESULT PROOF IS WRONG ')
+
+    def validate_checkpoint(checkpoint_list):
+        reference_hashed_state = None
+        reference_slot_number = None
+        for checkpoint_statement in checkpoint_list:
+            signature, statement, replica_id = checkpoint_statement
+            hashed_state, checkpoint_slot_number = statement  # (hashed_state, slot number)
+            if reference_hashed_state is None:
+                reference_hashed_state = hashed_state
+            if reference_slot_number is None:
+                reference_slot_number = checkpoint_slot_number
+            # for validating if the correct sender has sent the message
+            hashed_statement = SHA256.new(
+                json.dumps(statement). encode('utf-8')).digest()
+            public_key = self.public_keys[replica_id]
+            if public_key.verify(hashed_statement, signature):
+                if reference_hashed_state != hashed_state:
+                    return False
+            else:
+                return False
+        # print('WOWWWWWWWWW >>> CHECKPOINT VALIDATED')
+        return True
+
+    def truncate_history(signed_checkpoint_list):
+        # pick any random entry from the list and remove the 
+        checkpoint_msg = signed_checkpoint_list[0]
+        _, checkpoint_statement, _ = checkpoint_msg
+        _, max_slot_to_remove = checkpoint_statement
+        print('truncating history', max_slot_to_remove)
+        index = -1
+        for pos, i in enumerate(self.history):
+            if i[0] ==  max_slot_to_remove:
+                 index = pos
+        if index != -1:
+            # print('old history', self.history)
+            self.history = self.history[index:]
+            self.history = signed_checkpoint_list + self.history
+            print('new history', self.history)
+            print('remove index 0 to ', index)
+            pass
+
+    def receive(msg=('checkpoint', signed_checkpoint_payload), from_=prev_replica):
+        if validate_checkpoint(signed_checkpoint_payload):
+                checkpoint_statement = generate_checkpoint_statement()
+                signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
+                signed_checkpoint_payload.append(signed_checkpoint_msg)
+                if not isTail:
+                    send(('checkpoint', signed_checkpoint_payload), to=next_replica)
+                else:
+                    truncate_history(signed_checkpoint_payload)
+                    send(('checkpoint_proof', signed_checkpoint_payload), to=prev_replica)
+        else:
+            print('Couldnot verify checkpoint message')
+
+    def receive(msg=('checkpoint_proof', signed_checkpoint_list), from_=next_replica):
+        if validate_checkpoint(signed_checkpoint_list):
+            truncate_history(signed_checkpoint_list)
+            if not isHead:
+                send(('checkpoint_proof', signed_checkpoint_list), to=prev_replica)
 
     def receive(msg=('retransmission', retrans_payload, client_signature),
                 from_=c):

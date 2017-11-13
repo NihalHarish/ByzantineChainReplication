@@ -39,7 +39,7 @@ def __generate_pseudo_random_workload(seed, size):
     random.seed(seed)
 
     for iteration in range(size):
-        random_word = rw.random_word()
+        random_word = rw.random_word()# [:2]
         random_operation = random.choice(operation_list)
         if random_operation == 'put':
             workload += "put('" + random_word + "', '" + \
