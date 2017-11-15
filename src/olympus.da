@@ -33,8 +33,10 @@ class Olympus(process):
         self.crypt_key = crypt_key
         self.wedge_responses = []
         self.t = None
+        self.hashes_for_reference = []
         self.replica_public_keys = {}
         self.replica_map = {}
+        self.lock = False
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -252,25 +254,78 @@ class Olympus(process):
                 catch_up.append((slot, operation))
         return catch_up
 
+    def select_quorum():
+        if self.lock:
+            return
+        else:
+            self.lock = True
+        selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
+        if check_all_history_consistent(selected_quorum):
+            longest_history = filter_longest_history(selected_quorum)
+            for replica_statement in selected_quorum:
+                _, wedge_statement, replica_id = replica_statement
+                checkpoint, history = wedge_statement
+                replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
+                catch_up_operations = history_difference(replica_history, longest_history)
+                # print ('oooh catcup response for ', replica_id, ' is ', catch_up_operations)
+                send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
+        else:
+            print('history is not consistent')
+            self.lock = False
+            select_quorum()
+
+
 
     def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
         # validate the wedge response from the replica
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
             if len(wedge_responses) >= self.config['t'] + 1:
-                selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
-                if check_all_history_consistent(selected_quorum):
-                    longest_history = filter_longest_history(selected_quorum)
-                    for replica_statement in selected_quorum:
-                        _, wedge_statement, replica_id = replica_statement
-                        checkpoint, history = wedge_statement
-                        replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
-                        catch_up_operations = history_difference(replica_history, longest_history)
-                        # print ('oooh catcup response for ', replica_id, ' is ', catch_up_operations)
-                        send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
-                else:
-                    print('fucked')
-                # pass
+                select_quorum()
+
+
+    def validate_caughtup_response(signed_running_hash):
+       signature, statement, replica_id = signed_running_hash
+       hashed_statement = SHA256.new(
+           json.dumps(statement). encode('utf-8')).digest()
+       public_key = self.replica_public_keys[replica_id]
+       if public_key.verify(hashed_statement, signature):
+           return True
+       else:
+           return False  # The result_statement has been changed because of failure injecti
+
+
+    def generate_signature():
+        nonce = random.randint(1, 1000)
+        message = self.crypt_key.sign(nonce, '')
+        return (message, nonce, client_id)
+
+    def receive(msg=('caughtup-response', signed_running_hash), from_=rep):
+        if validate_caughtup_response(signed_running_hash):
+            _, statement, replica_id = signed_running_hash
+            if len(self.hashes_for_reference) == 0:
+                self.hashes_for_reference.append((statement, replica_id))
+            elif self.hashes_for_reference[0][0] != statement:
+                self.hashes_for_reference = []
+                self.lock = False
+                select_quorum()
+            else:
+                self.hashes_for_reference.append((statement, replica_id))
+            if len(self.hashes_for_reference) == self.config['t'] + 1:
+                print('received hash {0} from {1}'.format(self.hashes_for_reference, replica_id))
+                random_replica = random.choice(self.hashes_for_reference)[1]
+                # signature = generate_signature()
+                send(('get-running-state'), to=replica_map[random_replica])
+
+
+    def receive(msg=('running-state', state), from_=olympus):
+        print('received running state ', state)
+        hashed_statement = SHA256.new(
+                json.dumps(state). encode('utf-8')).hexdigest()
+        random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
+        print(hashed_statement, random_hash_from_reference)
+        if hashed_statement == random_hash_from_reference:
+            print('This is a freaking success')
 
 
     # def init_logger():

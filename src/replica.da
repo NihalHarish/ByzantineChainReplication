@@ -501,6 +501,7 @@ class Replica(process):
             return True
         return False
 
+
     def receive(
             msg=(
                 'client-request',
@@ -947,7 +948,8 @@ class Replica(process):
                     logger.error('Timeout @nonhead: Have to send \
                             reconfigure message to Olympus')
                     print(self, 'here4')
-                    send(('reconfigure-request'), to=olympus)
+                    if self.mode != REPLICA_IMMUTABLE:
+                        send(('reconfigure-request'), to=olympus)
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
@@ -961,14 +963,29 @@ class Replica(process):
                     print('Timeout expird at Head: \
                             Have to send reconfigure message to Olympus')
                     print(self, 'here5')
-                    send(('reconfigure-request'), to=olympus)
+                    if self.mode != REPLICA_IMMUTABLE:
+                        send(('reconfigure-request'), to=olympus)
+
+    def generate_caughtup_signature(caughtup_statement):
+        caughtup_stm = json.dumps(caughtup_statement).encode('utf-8')
+        caught_up_statement_hash = SHA256.new(caughtup_stm).digest()
+        signature = self.passport.sign(caught_up_statement_hash , '')
+        return (signature, caughtup_statement, self.unique_id)
 
     def receive(msg=('catchup-request', sequence_of_operations), from_=olympus):
         # perform the sequence of operations in the current running state
         # send the hash of the current running state to the olympus
         # send caught up response
         print('received catchup-request for ', sequence_of_operations)
-        send(('caughtup-response', compute_running_state_hash()), to=olympus)
+        for operations in sequence_of_operations:
+            slot, opr = operations
+            if slot == self.current_slot + 1:
+                self.current_slot = slot
+                status = perform_operation(opr)
+                print('perfoming {0} {1} => {2}'.format(slot, opr, status))
+        caughtup_statement = compute_running_state_hash()
+        signed_caughtup_statement = generate_caughtup_signature(caughtup_statement)
+        send(('caughtup-response', signed_caughtup_statement), to=olympus)
 
     def receive(msg=('get-running-state'), from_=olympus):
         send(('running-state', self.running_state), to=olympus)
