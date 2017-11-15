@@ -1,5 +1,6 @@
 from Crypto.PublicKey import RSA
 from Crypto import Random
+from Crypto.Hash import SHA256
 import uuid
 import re
 import logging
@@ -8,7 +9,8 @@ import message_type
 import config_handler
 import os
 import random
-
+import json
+import random
 GET_CONFIG = 'get_config'
 SEND_CONFIG = 'take_config'
 
@@ -29,12 +31,17 @@ class Olympus(process):
         self.test_case = test_case
         self.tail_node = None
         self.crypt_key = crypt_key
+        self.wedge_responses = []
+        self.t = None
+        self.replica_public_keys = {}
+        self.replica_map = {}
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
         key = RSA.generate(1024, random_generator)
         public_key = key.publickey().exportKey()
         self.replicas_key_pairs[replica_id] = public_key
+        self.replica_public_keys[replica_id] = RSA.importKey(public_key)
         return (key, self.replicas_key_pairs)
 
     def sign_message():
@@ -79,6 +86,7 @@ class Olympus(process):
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
             replica_id = replica_ids[i]
+            replica_map[replica_id] = replica
             isHead = True if i == 0 else False
             isTail = True if i == (len(replicas) - 1) else False
 
@@ -109,8 +117,10 @@ class Olympus(process):
                      timeout_val,
                      self.client_public_keys,
                      replica_fail[i],
-                        head_replica_id,
-                        test_case))
+                     head_replica_id,
+                     test_case,
+                     self
+                     ))
             else:
                 setup(
                     {replica},
@@ -127,8 +137,10 @@ class Olympus(process):
                      timeout_val,
                      self.client_public_keys,
                      [],
-                        head_replica_id,
-                        test_case))
+                     head_replica_id,
+                     test_case,
+                     self
+                     ))
 
         start(replicas)
         logging.info("Replica init for t = " + str(number) + " is complete")
@@ -170,7 +182,7 @@ class Olympus(process):
             return True
         return False
 
-    def receive(msg=(GET_CONFIG, signed_message), from_=client):
+    def receive(msg=('get_config', signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
         logging.info(
             "Olympus has received config request from client: " +
@@ -182,6 +194,84 @@ class Olympus(process):
             send((SEND_CONFIG, config, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
+
+    def receive(msg=('reconfigure-request'), from_=anyone):
+        print ('got reconfigure request from ', anyone)
+        for repl in replica_list:
+            send(('wedge-request'), to=repl)
+        # send wedge request to all the replicas
+
+
+    def validate_wedge_response(signed_wedge_statement):
+       signature, statement, replica_id = signed_wedge_statement
+       hashed_statement = SHA256.new(
+           json.dumps(statement). encode('utf-8')).digest()
+       public_key = self.replica_public_keys[replica_id]
+       if public_key.verify(hashed_statement, signature):
+           return True
+       else:
+           return False  # The result_statement has been changed because of failure injection
+
+    def check_all_history_consistent(quorum_list):
+        '''
+            quorum list will contain [(signature, wedge_statement, replica_id), ...]
+            wedge_statement contains (checkpoint, history)
+            for now we are interested only in history
+        '''
+        temp_history = {}
+        for replica_statement in quorum_list:
+            _, wedge_statement, _ = replica_statement
+            checkpoint, history = wedge_statement
+            for history_statement in history:
+                slot, operation, _ = history_statement
+                if slot not in temp_history:
+                    temp_history[slot] = operation
+                else:
+                    if operation != temp_history[slot]:
+                        return False
+        return True
+
+    def filter_longest_history(selected_quorum):
+        max_history = None
+        max_slot_number = 0
+        for replica_statement in selected_quorum:
+            _, wedge_statement, _ = replica_statement
+            checkpoint, history = wedge_statement
+            if history[-1] is not None:
+                if history[-1][0] > max_slot_number:
+                    max_history = history
+                    max_slot_number = history[-1][0]
+        return map(lambda x: (x[0], x[1]), max_history)  # return only slot and operation
+
+    def history_difference(replica_history, max_history):
+        # print('THE MAXIMUM HISTORY IS ', max_history)
+        catch_up = []
+        for hist in max_history:
+            slot, operation = hist
+            if (slot, operation) not in replica_history:
+                catch_up.append((slot, operation))
+        return catch_up
+
+
+    def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
+        # validate the wedge response from the replica
+        if validate_wedge_response(wedge_statement):
+            wedge_responses.append(wedge_statement)
+            if len(wedge_responses) >= self.config['t'] + 1:
+                selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
+                if check_all_history_consistent(selected_quorum):
+                    longest_history = filter_longest_history(selected_quorum)
+                    for replica_statement in selected_quorum:
+                        _, wedge_statement, replica_id = replica_statement
+                        checkpoint, history = wedge_statement
+                        replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
+                        catch_up_operations = history_difference(replica_history, longest_history)
+                        # print ('oooh catcup response for ', replica_id, ' is ', catch_up_operations)
+                        send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
+                else:
+                    print('fucked')
+                # pass
+
 
     # def init_logger():
     #     logging_directory = os.path.join(os.path.dirname(\

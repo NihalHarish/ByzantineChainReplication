@@ -27,7 +27,7 @@ class Replica(process):
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
               client_keys: dict, failures: instance,
-              head_replica_id: str, test_case: str):
+              head_replica_id: str, test_case: str, olympus: instance):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -73,6 +73,8 @@ class Replica(process):
         self.test_case = test_case
         self.checkpoint_limit = 5
         self.checkpoint_count = 1
+        self.olympus = olympus
+        self.checkpoint_cache = None
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -508,7 +510,7 @@ class Replica(process):
         '''
             Client request operation handler.
         '''
-        if validate_client_signature(client_signature):
+        if validate_client_signature(client_signature) and self.mode != REPLICA_IMMUTABLE:
             operation = {}
             operation['client_id'] = client_payload['client_id']
             operation['request_id'] = client_payload['request_number']
@@ -594,7 +596,7 @@ class Replica(process):
         '''
         shuttle_msg = payload
 
-        if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT]:  # new slot
+        if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT] and self.mode != REPLICA_IMMUTABLE:  # new slot
             if self.failures is not None:
                 check_failure('shuttle', payload)
 
@@ -691,14 +693,20 @@ class Replica(process):
                     print('Replica becomes immutable as result \
                             proof validation failed')
                     self.mode = REPLICA_IMMUTABLE
+                    print(self, 'here1')
+                    send(('reconfigure-request'), to=olympus)
             else:
                 logger.error('Replica becomes immutable as order \
                         proof validation failed')
                 print('Replica becomes immutable as order \
                         proof validation failed')
                 self.mode = REPLICA_IMMUTABLE
+                print(self, 'here2')
+                send(('reconfigure-request'), to=olympus)
         else:
-            self.mode = REPLICA_IMMUTABLE
+            if self.mode != REPLICA_IMMUTABLE:
+                self.mode = REPLICA_IMMUTABLE
+                send(('reconfigure-request'), to=olympus)
 
     def validate_complete_result_shuttle(complete_result_proof):
         '''
@@ -793,7 +801,10 @@ class Replica(process):
 
         else:
             logger.info('Result proof validation is wrong')
-            print('RESULT PROOF IS WRONG ')
+            print('RESULT PROOF IS WRONG, GOING TO IMMUTABLE STAGE')
+            self.mode = REPLICA_IMMUTABLE
+            print(self, 'here4')
+            send(('reconfigure-request'), to=olympus)
 
     def validate_checkpoint(checkpoint_list):
         reference_hashed_state = None
@@ -814,7 +825,6 @@ class Replica(process):
                     return False
             else:
                 return False
-        # print('WOWWWWWWWWW >>> CHECKPOINT VALIDATED')
         return True
 
     def truncate_history(signed_checkpoint_list):
@@ -828,12 +838,11 @@ class Replica(process):
             if i[0] ==  max_slot_to_remove:
                  index = pos
         if index != -1:
+            checkpoint_cache = signed_checkpoint_list
             # print('old history', self.history)
             self.history = self.history[index:]
-            self.history = signed_checkpoint_list + self.history
-            print('new history', self.history)
-            print('remove index 0 to ', index)
-            pass
+            # print('new history', self.history)
+            print('new history starts from: ', index)
 
     def receive(msg=('checkpoint', signed_checkpoint_payload), from_=prev_replica):
         if validate_checkpoint(signed_checkpoint_payload):
@@ -937,6 +946,8 @@ class Replica(process):
                             reconfigure message to Olympus')
                     logger.error('Timeout @nonhead: Have to send \
                             reconfigure message to Olympus')
+                    print(self, 'here4')
+                    send(('reconfigure-request'), to=olympus)
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
@@ -949,6 +960,36 @@ class Replica(process):
                             Have to send reconfigure message to Olympus')
                     print('Timeout expird at Head: \
                             Have to send reconfigure message to Olympus')
+                    print(self, 'here5')
+                    send(('reconfigure-request'), to=olympus)
+
+    def receive(msg=('catchup-request', sequence_of_operations), from_=olympus):
+        # perform the sequence of operations in the current running state
+        # send the hash of the current running state to the olympus
+        # send caught up response
+        print('received catchup-request for ', sequence_of_operations)
+        send(('caughtup-response', compute_running_state_hash()), to=olympus)
+
+    def receive(msg=('get-running-state'), from_=olympus):
+        send(('running-state', self.running_state), to=olympus)
+
+    def generate_signed_wedge_statement(wedge_statement):
+        wedge_stm = json.dumps(wedge_statement).encode('utf-8')
+        wedge_statement_hash = SHA256.new(wedge_stm).digest()
+        signature = self.passport.sign(wedge_statement_hash , '')
+        return (signature, wedge_statement, self.unique_id)
+
+    def generate_wedge_statement():
+        wedge_statement = (self.checkpoint_cache, self.history)
+        return wedge_statement
+
+    def receive(msg=('wedge-request'), from_=olympus):
+        # validate if it came from the olympus: TODO
+        print(self, ' receiving wedge req')
+        self.mode = REPLICA_IMMUTABLE
+        wedge_statement = generate_wedge_statement()
+        signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
+        send(('wedge-response', signed_wedge_message), to=olympus)
 
     def generate_client_result_message(result_shuttle):
         '''

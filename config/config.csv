@@ -6,10 +6,10 @@ test_case_name = test1
 # number of failures to tolerate.  number of replicas is 2t+1.
 t = 2
 # number of clients
-num_client = 3
+num_client = 1
 # client timeout, in milliseconds.  if timer expires, resend request 
 # to all replicas, as described in section 3.3.
-client_timeout = 3000
+client_timeout = 3
 # timeout, in milliseconds, for head and non-head servers, respectively:
 # if timer expires, send reconfiguration request to Olympus, as described 
 # in section 3.3.
@@ -29,9 +29,7 @@ client_hosts = 1; 0; 0
 replica_hosts = 0; 1; 2
 
 # CLIENT WORKLOAD
-workload[0] = append('start', 'collection'); append('start', 'frosts'); get('start'); put('handle', 'smile'); append('handle', 'cement'); slice('handle', '3:1'); slice('start', '9:5'); put('discipline', 'interrelation'); get('handle'); slice('discipline', '2:0')
 workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
-workload[2] = get('start'); get('start'); slice('start', '8:6'); get('start'); append('start', 'meetings'); put('ports', 'gross'); put('jewel', 'accidents'); slice('start', '6:9'); get('jewel'); slice('start', '0:9')
 
 # FAILURE SCENARIO
 # failures(c,r) is the failure scenario for replica r in configuration c.
@@ -43,7 +41,7 @@ workload[2] = get('start'); get('start'); slice('start', '8:6'); get('start'); a
 # failures[0,3] = result_shuttle(2,1),change_result()
 
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 
-# failures[1,2] = result_shuttle(0,1),drop();shuttle(1,3),omit_send()
+failures[0,2] = shuttle(0,1), change_result()
 
 #TEST VALUES
 test_dict = {"ports": " gross", "jewel": " accidents", "discipline": " interrelation", "movie": "star wars", "handle": " smile cement"} 
