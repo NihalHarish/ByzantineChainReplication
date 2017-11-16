@@ -29,7 +29,7 @@ client_hosts = 1; 0; 0
 replica_hosts = 0; 1; 2
 
 # CLIENT WORKLOAD
-workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
+workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie')
 
 # FAILURE SCENARIO
 # failures(c,r) is the failure scenario for replica r in configuration c.

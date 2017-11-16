@@ -243,12 +243,11 @@ class Olympus(process):
                 if history[-1][0] > max_slot_number:
                     max_history = history
                     max_slot_number = history[-1][0]
-        return map(lambda x: (x[0], x[1]), max_history)  # return only slot and operation
+        return list(map(lambda x: (x[0], x[1]), max_history))  # return only slot and operation
 
-    def history_difference(replica_history, max_history):
-        # print('THE MAXIMUM HISTORY IS ', max_history)
+    def history_difference(replica_history, big_history):
         catch_up = []
-        for hist in max_history:
+        for hist in big_history:
             slot, operation = hist
             if (slot, operation) not in replica_history:
                 catch_up.append((slot, operation))
@@ -259,15 +258,18 @@ class Olympus(process):
             return
         else:
             self.lock = True
+        print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         if check_all_history_consistent(selected_quorum):
             longest_history = filter_longest_history(selected_quorum)
             for replica_statement in selected_quorum:
+                print(longest_history)
                 _, wedge_statement, replica_id = replica_statement
                 checkpoint, history = wedge_statement
                 replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
                 catch_up_operations = history_difference(replica_history, longest_history)
-                # print ('oooh catcup response for ', replica_id, ' is ', catch_up_operations)
+                print('sending catchup to ', replica_map[replica_id])
+                print('catchup payload ', catch_up_operations)
                 send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
         else:
             print('history is not consistent')
@@ -306,6 +308,7 @@ class Olympus(process):
             if len(self.hashes_for_reference) == 0:
                 self.hashes_for_reference.append((statement, replica_id))
             elif self.hashes_for_reference[0][0] != statement:
+                print('dude the hashes are not consistent ', self.hashes_for_reference, statement, rep)
                 self.hashes_for_reference = []
                 self.lock = False
                 select_quorum()
