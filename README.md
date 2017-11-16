@@ -19,7 +19,10 @@
 
 ### Olympus
 
-- [x] create initial configuration: create keys, create, setup, and start processes  
+- [x] create initial configuration: create keys, create, setup, and start processes 
+- [ ] finds the longest history
+    - [x] longest history using only history 
+    - [ ] longest history along with checkpoint
 
 ### Replicas
 
