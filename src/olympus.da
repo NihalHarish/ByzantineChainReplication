@@ -221,21 +221,33 @@ class Olympus(process):
             for now we are interested only in history
         '''
         temp_history = {}
+        order_proof_length_map = {}
         for replica_statement in quorum_list:
+            # TODO: decrypt the wedge statement
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
             for history_statement in history:
-                slot, operation, _ = history_statement
+                # TODO: decrypt the order proof 
+                slot, operation, order_proof = history_statement
                 if slot not in temp_history:
                     temp_history[slot] = operation
+                    order_proof_length_map[slot] = len(order_proof)
                 else:
+                    order_proof_length_map[slot] = max(order_proof_length_map[slot],\
+                            len(order_proof))
                     if operation != temp_history[slot]:
                         return False
+        # checking if all order proofs have atleast size t + 1
+        print(2, order_proof_length_map)
+        for sizes_of_order_proof in order_proof_length_map.values():
+            if sizes_of_order_proof < self.config['t'] + 1:
+                return False
         return True
 
     def filter_longest_history(selected_quorum):
         max_history = None
-        max_slot_number = 0
+        max_slot_number = -1
+        count_max_slot_number = 0
         for replica_statement in selected_quorum:
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
@@ -245,12 +257,19 @@ class Olympus(process):
                     max_slot_number = history[-1][0]
         return list(map(lambda x: (x[0], x[1]), max_history))  # return only slot and operation
 
-    def history_difference(replica_history, big_history):
+    def history_difference(big_history, replica_history, replica_checkpoint):
         catch_up = []
+        checkpoint_data = None
+        if replica_checkpoint is not None:
+            checkpoint_data = map(lambda x: x[1][1], replica_checkpoint)
+        print('checkpoint ', list(checkpoint_data))
         for hist in big_history:
             slot, operation = hist
             if (slot, operation) not in replica_history:
-                catch_up.append((slot, operation))
+                if checkpoint_data is None:
+                    catch_up.append((slot, operation))
+                elif slot > checkpoint_data[0]:
+                    catch_up.append((slot, operation))
         return catch_up
 
     def select_quorum():
@@ -260,14 +279,16 @@ class Olympus(process):
             self.lock = True
         print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
+        print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
+                list(map(lambda x: replica_map[x[-1]], wedge_responses)))
         if check_all_history_consistent(selected_quorum):
             longest_history = filter_longest_history(selected_quorum)
+            print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
-                print(longest_history)
                 _, wedge_statement, replica_id = replica_statement
                 checkpoint, history = wedge_statement
                 replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
-                catch_up_operations = history_difference(replica_history, longest_history)
+                catch_up_operations = history_difference(longest_history, replica_history, checkpoint)
                 print('sending catchup to ', replica_map[replica_id])
                 print('catchup payload ', catch_up_operations)
                 send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
@@ -282,7 +303,7 @@ class Olympus(process):
         # validate the wedge response from the replica
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
-            if len(wedge_responses) >= self.config['t'] + 1:
+            if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
                 select_quorum()
 
 

@@ -4,7 +4,7 @@
 test_case_name = test1
 
 # number of failures to tolerate.  number of replicas is 2t+1.
-t = 2
+t = 5
 # number of clients
 num_client = 1
 # client timeout, in milliseconds.  if timer expires, resend request 
@@ -29,7 +29,7 @@ client_hosts = 1; 0; 0
 replica_hosts = 0; 1; 2
 
 # CLIENT WORKLOAD
-workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie')
+workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot')
 
 # FAILURE SCENARIO
 # failures(c,r) is the failure scenario for replica r in configuration c.
@@ -41,7 +41,7 @@ workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Aff
 # failures[0,3] = result_shuttle(2,1),change_result()
 
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 
-failures[0,2] = shuttle(0,1), change_result()
+failures[0,4] = shuttle(0,5), change_result()
 
 #TEST VALUES
 test_dict = {"ports": " gross", "jewel": " accidents", "discipline": " interrelation", "movie": "star wars", "handle": " smile cement"} 

@@ -71,7 +71,7 @@ class Replica(process):
         }
         self.failure_forward_request_number = {}
         self.test_case = test_case
-        self.checkpoint_limit = 5
+        self.checkpoint_limit = 3
         self.checkpoint_count = 1
         self.olympus = olympus
         self.checkpoint_cache = None
@@ -1006,6 +1006,7 @@ class Replica(process):
         self.mode = REPLICA_IMMUTABLE
         wedge_statement = generate_wedge_statement()
         signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
+        # if not self.isTail:
         send(('wedge-response', signed_wedge_message), to=olympus)
 
     def generate_client_result_message(result_shuttle):
