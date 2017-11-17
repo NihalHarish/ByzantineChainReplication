@@ -51,7 +51,7 @@ class Olympus(process):
         message = self.crypt_key.sign(nonce, '')
         return (message, nonce)
 
-    def init_replicas(number):
+    def init_replicas(number, state={}):
         logging.info("Staring replica init for t = " + str(number))
         replicas = list(new(Replica, num=number))
         replica_ids = [uuid.uuid4().hex for replica in replicas]
@@ -84,9 +84,10 @@ class Olympus(process):
                     replica_fail[replica_index].append(failure_list)
 
         print(replica_fail)
-
+        logging.info("Reached point 1")
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
+            logging.info("Run: {0}".format(i))
             replica_id = replica_ids[i]
             replica_map[replica_id] = replica
             isHead = True if i == 0 else False
@@ -96,12 +97,20 @@ class Olympus(process):
             next_r = None if isTail else replicas[i + 1]
 
             key, keychain = keys[i]
+            logging.info("Before point 1.1")
             if isHead:
+                logging.info('Has entered is Head')
                 self.head_node = replica
+                logging.info('Has entered is Head 2')
+                logging.info("Config: {0}".format(self.config))
+                logging.info("Head Timeout: {0}".format(int(self.config['head_timeout'])))
                 timeout_val = int(self.config['head_timeout'])
+                logging.info('Has entered is Head 3')
             if isTail:
+                logging.info('Has entered is Tail')
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
+            logging.info("Reached point 1.1")
 
             if i in replica_fail:
                 setup(
@@ -119,6 +128,7 @@ class Olympus(process):
                      timeout_val,
                      self.client_public_keys,
                      replica_fail[i],
+                     state,
                      head_replica_id,
                      test_case,
                      self
@@ -139,14 +149,18 @@ class Olympus(process):
                      timeout_val,
                      self.client_public_keys,
                      [],
+                     state,
                      head_replica_id,
                      test_case,
                      self
                      ))
 
+        logging.info("Reached point 2")
         start(replicas)
         logging.info("Replica init for t = " + str(number) + " is complete")
         self.replica_list = replicas
+        logging.info("Spawned Replica ids: {0}".format(replica_ids))
+
 
     def parse_workload(workload):
         match = re.match(r'^[^\(]+', workload).group()
@@ -190,10 +204,10 @@ class Olympus(process):
             "Olympus has received config request from client: " +
             str(client))
         if validate_client(signed_message):
-            config = craft_client_config(client)
+            config_client = craft_client_config(client)
             print('Will be sending config to ', str(client))
             signature = sign_message()
-            send((SEND_CONFIG, config, signature), to=client)
+            send((SEND_CONFIG, config_client, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
 
@@ -342,6 +356,13 @@ class Olympus(process):
                 send(('get-running-state'), to=replica_map[random_replica])
 
 
+    def kill_replicas():
+        for replica in self.replica_list:
+            nothing = 'nothing'
+            send(('die-now', nothing), to=replica)
+            
+        
+
     def receive(msg=('running-state', state), from_=olympus):
         print('received running state ', state)
         hashed_statement = SHA256.new(
@@ -349,7 +370,11 @@ class Olympus(process):
         random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
         print(hashed_statement, random_hash_from_reference)
         if hashed_statement == random_hash_from_reference:
-            print('This is a freaking success')
+            print('This is a freaking success') #init new replicas all over again and pass new running state
+            kill_replicas()
+            t = self.config['t']
+            t = 2*t + 1
+            init_replicas(t, state)
 
 
     # def init_logger():

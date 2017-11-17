@@ -27,9 +27,10 @@ class Replica(process):
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
               client_keys: dict, failures: instance,
+              running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance):
         self.unique_id = unique_id
-        self.running_state = {}
+        self.running_state = running_state
         self.history = []
         self.result_proof = []
         self.order_proof = []
@@ -75,6 +76,8 @@ class Replica(process):
         self.checkpoint_count = 1
         self.olympus = olympus
         self.checkpoint_cache = None
+
+        self.replica_life = False
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -179,7 +182,8 @@ class Replica(process):
         init_logger()
         logger.info('{0}: Replica is running '.format(self))
         print('{0}: Replica is running'.format(self))
-        await(False)
+        await(self.replica_life)
+        logger.info('{0}: Replica has died '.format(self))
 
     def _change_result(result_shuttle_proof):
         '''
@@ -730,6 +734,12 @@ class Replica(process):
             else:
                 return False  # The result_statement has been changed because of failure injection
         return True
+
+    def receive(msg=('die-now', nothing), from_=next_replica):
+        self.replica_life = True
+        logger.info('The value of self.replica_life has been changed to {0}'.format(self.replica_life))
+        import os
+        os._exit(1)
 
     def receive(msg=('result_shuttle', payload), from_=next_replica):
         '''
