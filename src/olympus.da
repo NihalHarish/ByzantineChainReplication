@@ -273,10 +273,11 @@ class Olympus(process):
 
     def history_difference(big_history, replica_history, replica_checkpoint):
         catch_up = []
+        print('checkpoint ', replica_checkpoint)
         checkpoint_data = None
         if replica_checkpoint is not None:
             checkpoint_data = map(lambda x: x[1][1], replica_checkpoint)
-        print('checkpoint ', list(checkpoint_data))
+            print('checkpoint ', list(checkpoint_data))
         for hist in big_history:
             slot, operation = hist
             if (slot, operation) not in replica_history:
@@ -310,8 +311,6 @@ class Olympus(process):
             print('history is not consistent')
             self.lock = False
             select_quorum()
-
-
 
     def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
         # validate the wedge response from the replica

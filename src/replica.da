@@ -17,7 +17,12 @@ from constants import RESULT_SHUTTLE_FAILURE_TRIGGER, \
     SHUTTLE_CLIENT_ID, SHUTTLE, CHECKSUM,\
     CLIENT_ID, CLIENT_REQUEST_ID, RESULT,\
     STATUS, CHANGE_RESULT, CHANGE_OPERATION,\
-    DROP_RESULT_STMT
+    DROP_RESULT_STMT, CRASH, TRUNCATE_HISTORY,\
+    SLEEP, DROP, INCREMENT_SLOT, EXTRA_OP,\
+    INVALID_ORDER_SIG, INVALID_RESULT_SIG, DROP_CHECKPOINT_STMTS, \
+    WEDGE_REQUEST_FAILURE_TRIGGER, NEW_CONFIGURATION_FAILURE_TRIGGER,\
+    CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER,\
+    GET_RUNNING_STATE_FAILURE_TRIGGER, CATCH_UP_FAILURE_TRIGGER
 
 
 class Replica(process):
@@ -63,16 +68,39 @@ class Replica(process):
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
         self.timeout_val = timeout_val
-        # [(failure_trigger_msg, from_which_client, message_number, failure_action)]
         self.failures = failures
         self.failure_trigger_dict = {
             CHANGE_RESULT: False,
             CHANGE_OPERATION: False,
-            DROP_RESULT_STMT: False
+            DROP_RESULT_STMT: False,
+            CRASH: False,
+            TRUNCATE_HISTORY: False,
+            SLEEP: False,
+            DROP: False,
+            INCREMENT_SLOT: False,
+            EXTRA_OP: False,
+            INVALID_ORDER_SIG: False,
+            INVALID_RESULT_SIG: False,
+            DROP_CHECKPOINT_STMTS: False,
+
+        }
+        self.fuck_failure = {
+                WEDGE_REQUEST_FAILURE_TRIGGER: 0,
+                NEW_CONFIGURATION_FAILURE_TRIGGER: 0,
+                CHECKPOINT_FAILURE_TRIGGER: 0,
+                COMPLETE_CHECKPOINT_FAILURE_TRIGGER: 0,
+                GET_RUNNING_STATE_FAILURE_TRIGGER:0,
+                CATCH_UP_FAILURE_TRIGGER: 0
         }
         self.failure_forward_request_number = {}
+        self.failure_new_configuration_number = {}
+        self.failure_checkpoint_number = {}
+        self.failure_complete_checkpoint_number = {}
+        self.failure_running_state_number = {}
+        self.failure_catch_up_number = {}
+
         self.test_case = test_case
-        self.checkpoint_limit = 3
+        self.checkpoint_limit = 4
         self.checkpoint_count = 1
         self.olympus = olympus
         self.checkpoint_cache = None
@@ -348,6 +376,9 @@ class Replica(process):
         '''
         if self.failures is not None:
             check_failure('client_request', operation)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
 
         if self.isHead:
             update_current_slot_number()
@@ -572,8 +603,15 @@ class Replica(process):
                             self.client_list.index(client_process) == \
                             from_which_client:
                         logger.info('A failure has been scheduled to run next')
-                        print('AAAAAAAAAAAAAAAAAAA triggering forwarded request failure next')
                         failure_trigger_dict[action] = True
+                        if action == CRASH:
+                            _crash()
+                        elif action == SLEEP:
+                            _go_to_sleep()
+                        elif action == INCREMENT_SLOT:
+                            update_current_slot_number()
+                        elif action == EXTRA_OP:
+                            _put({'key':'a', 'value':'a'})
                 elif req_id == message_number and \
                         self.client_list.index(client_process) == \
                         from_which_client:
@@ -584,6 +622,47 @@ class Replica(process):
                           from_which_client, ' and for request number ',
                           req_id)
                     failure_trigger_dict[action] = True
+                    if action == CRASH:
+                        _crash()
+                    elif action == SLEEP:
+                        _go_to_sleep()
+                    elif action == INCREMENT_SLOT:
+                        update_current_slot_number()
+                    elif action == EXTRA_OP:
+                        _put({'key':'a', 'value':'a'})
+
+
+    def check_failure_phase_3(type_failure):
+        for failure_tuple in self.failures:
+            print(failure_tuple, type_failure)
+            if type_failure in failure_tuple:
+                _, _, message_number, action = failure_tuple
+                self.fuck_failure[type_failure] += 1
+                if self.fuck_failure[type_failure] == message_number:
+                    logger.info('Setting {0} failure'.format(type_failure))
+                    print('Setting {0} failure'.format(type_failure))
+                    failure_trigger_dict[action] = True
+                    if action == CRASH:
+                        _crash()
+                    elif action == SLEEP:
+                        _go_to_sleep()
+                    elif action == INCREMENT_SLOT:
+                        update_current_slot_number()
+                    elif action == EXTRA_OP:
+                        _put({'key':'a', 'value':'a'})
+
+    def _go_to_sleep():
+        failure_trigger_dict[action] = False
+        print('going to sleep')
+        time.sleep(3)
+
+    def _crash():
+        failure_trigger_dict[action] = False
+        print('oh buoy its crashing')
+        logging.shutdown()
+        os._exit(-1)
+
+
 
     def receive(msg=('shuttle', payload), from_=prev_replica):
         '''
@@ -604,6 +683,9 @@ class Replica(process):
         if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT] and self.mode != REPLICA_IMMUTABLE:  # new slot
             if self.failures is not None:
                 check_failure('shuttle', payload)
+            if self.failure_trigger_dict[DROP]:
+                self.failure_trigger_dict[DROP] = False
+                return
 
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(
@@ -759,6 +841,9 @@ class Replica(process):
 
         if self.failures is not None:
             check_failure('result_shuttle', payload)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
 
         if validate_complete_result_shuttle(complete_result_proof):
             result_shuttle = payload
@@ -856,6 +941,11 @@ class Replica(process):
             print('new history starts from: ', index)
 
     def receive(msg=('checkpoint', signed_checkpoint_payload), from_=prev_replica):
+        if self.failures is not None:
+            check_failure_phase_3(CHECKPOINT_FAILURE_TRIGGER)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
         if validate_checkpoint(signed_checkpoint_payload):
                 checkpoint_statement = generate_checkpoint_statement()
                 signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
@@ -869,6 +959,11 @@ class Replica(process):
             print('Couldnot verify checkpoint message')
 
     def receive(msg=('checkpoint_proof', signed_checkpoint_list), from_=next_replica):
+        if self.failures is not None:
+            check_failure_phase_3(COMPLETE_CHECKPOINT_FAILURE_TRIGGER)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
         if validate_checkpoint(signed_checkpoint_list):
             truncate_history(signed_checkpoint_list)
             if not isHead:
@@ -986,6 +1081,11 @@ class Replica(process):
         # perform the sequence of operations in the current running state
         # send the hash of the current running state to the olympus
         # send caught up response
+        if self.failures is not None:
+            check_failure_phase_3(CATCH_UP_FAILURE_TRIGGER)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
         print(self, 'received catchup-request for ', sequence_of_operations)
         for operations in sequence_of_operations:
             slot, opr = operations
@@ -998,6 +1098,11 @@ class Replica(process):
         send(('caughtup-response', signed_caughtup_statement), to=olympus)
 
     def receive(msg=('get-running-state'), from_=olympus):
+        if self.failures is not None:
+            check_failure_phase_3(GET_RUNNING_STATE_FAILURE_TRIGGER)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
         send(('running-state', self.running_state), to=olympus)
 
     def generate_signed_wedge_statement(wedge_statement):
@@ -1007,12 +1112,21 @@ class Replica(process):
         return (signature, wedge_statement, self.unique_id)
 
     def generate_wedge_statement():
-        wedge_statement = (self.checkpoint_cache, self.history)
+        if self.failure_trigger_dict[TRUNCATE_HISTORY]:
+            self.failure_trigger_dict[TRUNCATE_HISTORY] = False
+            wedge_statement = (self.checkpoint_cache, self.history[:-1])
+        else:
+            wedge_statement = (self.checkpoint_cache, self.history)
         return wedge_statement
 
     def receive(msg=('wedge-request'), from_=olympus):
         # validate if it came from the olympus: TODO
-        print(self, ' receiving wedge req')
+        if self.failures is not None:
+            check_failure_phase_3(WEDGE_REQUEST_FAILURE_TRIGGER)
+        if self.failure_trigger_dict[DROP]:
+            self.failure_trigger_dict[DROP] = False
+            return
+        print(self, ' receiving wedge')
         self.mode = REPLICA_IMMUTABLE
         wedge_statement = generate_wedge_statement()
         signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
@@ -1042,13 +1156,6 @@ class Replica(process):
         shuttle_msg[CLIENT_ID] = client_id
         shuttle_msg[CLIENT_REQUEST_ID] = request_id
         return shuttle_msg
-
-    def test_dict_object():
-        _put(('movie', 'star'))
-        _append(('movie', ' wars'))
-        _get('movie')
-        _slice(('movie', '0:2'))
-        print(self.running_state)
 
 
 def main():
