@@ -32,7 +32,7 @@ class Replica(process):
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
               client_keys: dict, failures: instance,
-              head_replica_id: str, test_case: str, olympus: instance):
+              head_replica_id: str, test_case: str, olympus: instance, t: int):
         self.unique_id = unique_id
         self.running_state = {}
         self.history = []
@@ -92,16 +92,12 @@ class Replica(process):
                 CATCH_UP_FAILURE_TRIGGER: 0
         }
         self.failure_forward_request_number = {}
-        self.failure_new_configuration_number = {}
-        self.failure_checkpoint_number = {}
-        self.failure_complete_checkpoint_number = {}
-        self.failure_running_state_number = {}
-        self.failure_catch_up_number = {}
 
         self.test_case = test_case
         self.checkpoint_limit = 4
         self.checkpoint_count = 1
         self.olympus = olympus
+        self.t = t
         self.checkpoint_cache = None
 
     def _build_key_chain(keychain):
@@ -300,7 +296,14 @@ class Replica(process):
         '''
         result_stm = json.dumps(result_statement).encode('utf-8')
         result_statement_hash = SHA256.new(result_stm).digest()
-        signature = self.passport.sign(result_statement_hash, '')
+        if self.failure_trigger_dict[INVALID_RESULT_SIG]:
+            self.failure_trigger_dict[INVALID_RESULT_SIG] = False
+            logger.info('invalid result proof signature performed')
+            print(self, ' invalid result proof signature performed')
+            signature = self.passport.sign('invalid_signature', '')
+        else:
+            signature = self.passport.sign(result_statement_hash, '')
+
         return (signature, result_statement, self.unique_id)
 
     def add_to_result_proof(signed_result_proof):
@@ -324,7 +327,13 @@ class Replica(process):
         '''
         order_stm = json.dumps(order_statement).encode('utf-8')
         order_statement_hash = SHA256.new(order_stm).digest()
-        signature = self.passport.sign(order_statement_hash, '')
+        if self.failure_trigger_dict[INVALID_ORDER_SIG]:
+            self.failure_trigger_dict[INVALID_ORDER_SIG] = False
+            logger.info('invalid order proof signature performed')
+            print(self, ' invalid order proof signature performed')
+            signature = self.passport.sign('invalid_signature', '')
+        else:
+            signature = self.passport.sign(order_statement_hash, '')
         return (signature, order_statement, self.unique_id)
 
     def add_to_order_proof(signed_order_statement):
@@ -373,6 +382,8 @@ class Replica(process):
         if self.failures is not None:
             check_failure('client_request', operation)
         if self.failure_trigger_dict[DROP]:
+            logger.info('dropping client request')
+            print(self, ' dropping client request')
             self.failure_trigger_dict[DROP] = False
             return
 
@@ -605,8 +616,12 @@ class Replica(process):
                         elif action == SLEEP:
                             _go_to_sleep()
                         elif action == INCREMENT_SLOT:
+                            failure_trigger_dict[action] = False
                             update_current_slot_number()
                         elif action == EXTRA_OP:
+                            logger.info('failure: perform {a:a}')
+                            print(self, ' failure: perform {a:a}')
+                            failure_trigger_dict[action] = False
                             _put({'key':'a', 'value':'a'})
                 elif req_id == message_number and \
                         self.client_list.index(client_process) == \
@@ -623,8 +638,12 @@ class Replica(process):
                     elif action == SLEEP:
                         _go_to_sleep()
                     elif action == INCREMENT_SLOT:
+                        failure_trigger_dict[action] = False
                         update_current_slot_number()
                     elif action == EXTRA_OP:
+                        logger.info('failure: perform {a:a}')
+                        print(self, ' failure: perform {a:a}')
+                        failure_trigger_dict[action] = False
                         _put({'key':'a', 'value':'a'})
 
 
@@ -643,18 +662,24 @@ class Replica(process):
                     elif action == SLEEP:
                         _go_to_sleep()
                     elif action == INCREMENT_SLOT:
+                        failure_trigger_dict[action] = False
                         update_current_slot_number()
                     elif action == EXTRA_OP:
+                        logger.info('failure: perform {a:a}')
+                        print(self, ' failure: perform {a:a}')
+                        failure_trigger_dict[action] = False
                         _put({'key':'a', 'value':'a'})
 
     def _go_to_sleep():
-        failure_trigger_dict[action] = False
-        print('going to sleep')
+        failure_trigger_dict[SLEEP] = False
+        logger.info('going to sleep')
+        print(self, 'going to sleep')
         time.sleep(3)
 
     def _crash():
-        failure_trigger_dict[action] = False
-        print('oh buoy its crashing')
+        failure_trigger_dict[CRASH] = False
+        print(self, ' is crashing')
+        logger.info('crashing')
         logging.shutdown()
         os._exit(-1)
 
@@ -681,6 +706,8 @@ class Replica(process):
                 check_failure('shuttle', payload)
             if self.failure_trigger_dict[DROP]:
                 self.failure_trigger_dict[DROP] = False
+                logger.info('Dropping shuttle msg')
+                print(self, ' is dropping shuttle msg')
                 return
 
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
@@ -833,6 +860,8 @@ class Replica(process):
             check_failure('result_shuttle', payload)
         if self.failure_trigger_dict[DROP]:
             self.failure_trigger_dict[DROP] = False
+            print(self, ' drops result shuttle message')
+            logger.info('dropping result shuttle message')
             return
 
         if validate_complete_result_shuttle(complete_result_proof):
@@ -892,9 +921,10 @@ class Replica(process):
             print(self, 'here4')
             send(('reconfigure-request'), to=olympus)
 
-    def validate_checkpoint(checkpoint_list):
+    def validate_checkpoint(checkpoint_list, complete = False):
         reference_hashed_state = None
         reference_slot_number = None
+        count_correct_hashes = 0
         for checkpoint_statement in checkpoint_list:
             signature, statement, replica_id = checkpoint_statement
             hashed_state, checkpoint_slot_number = statement  # (hashed_state, slot number)
@@ -909,8 +939,11 @@ class Replica(process):
             if public_key.verify(hashed_statement, signature):
                 if reference_hashed_state != hashed_state:
                     return False
+                count_correct_hashes += 1
             else:
                 return False
+        if count_correct_hashes < self.t + 1 and complete == True:
+            return False
         return True
 
     def truncate_history(signed_checkpoint_list):
@@ -935,8 +968,10 @@ class Replica(process):
             check_failure_phase_3(CHECKPOINT_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
             self.failure_trigger_dict[DROP] = False
+            print(self, ' is dropping checkpoint message')
+            logger.info('dropping checkpoint message')
             return
-        if validate_checkpoint(signed_checkpoint_payload):
+        if validate_checkpoint(signed_checkpoint_payload, complete=False):
                 checkpoint_statement = generate_checkpoint_statement()
                 signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
                 signed_checkpoint_payload.append(signed_checkpoint_msg)
@@ -952,12 +987,24 @@ class Replica(process):
         if self.failures is not None:
             check_failure_phase_3(COMPLETE_CHECKPOINT_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
+            print(self, ' is dropping checkpoint proof message')
+            logger.info('dropping checkpoint proof message')
             self.failure_trigger_dict[DROP] = False
             return
-        if validate_checkpoint(signed_checkpoint_list):
+        if validate_checkpoint(signed_checkpoint_list, complete=True):
             truncate_history(signed_checkpoint_list)
             if not isHead:
-                send(('checkpoint_proof', signed_checkpoint_list), to=prev_replica)
+                if self.failure_trigger_dict[DROP_CHECKPOINT_STMTS]:
+                    self.failure_trigger_dict[DROP_CHECKPOINT_STMTS] = False
+                    print(self, ' is chopping off the first t+1 replicas checkpoints ', signed_checkpoint_list[self.t+1:])
+                    # logger.info('chopping off first t+1 replicas from checkpoint {0}'.format(signed_checkpoint_list[self.t+1:]))
+                    send(('checkpoint_proof', signed_checkpoint_list[self.t+1:]), to=prev_replica)
+                else:
+                    send(('checkpoint_proof', signed_checkpoint_list), to=prev_replica)
+        else:
+            print(self, 'checkpoint proof validation failed, making reconfigure request')
+            # logger.info('checkpoint proof validation failed, making reconfigure request')
+            send(('reconfigure-request'), to=olympus)
 
     def receive(msg=('retransmission', retrans_payload, client_signature),
                 from_=c):
@@ -1074,6 +1121,8 @@ class Replica(process):
         if self.failures is not None:
             check_failure_phase_3(CATCH_UP_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
+            print(self, 'dropping catcup request')
+            logger.info('dropping catchup request')
             self.failure_trigger_dict[DROP] = False
             return
         print(self, 'received catchup-request for ', sequence_of_operations)
@@ -1091,6 +1140,8 @@ class Replica(process):
         if self.failures is not None:
             check_failure_phase_3(GET_RUNNING_STATE_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
+            print(self, ' dropping get-running-state request')
+            logger.info('dropping get-running-state request')
             self.failure_trigger_dict[DROP] = False
             return
         send(('running-state', self.running_state), to=olympus)
@@ -1104,6 +1155,8 @@ class Replica(process):
     def generate_wedge_statement():
         if self.failure_trigger_dict[TRUNCATE_HISTORY]:
             self.failure_trigger_dict[TRUNCATE_HISTORY] = False
+            print(self, 'sending truncated history as wedge response')
+            logger.info('sending truncated history as wedge response')
             wedge_statement = (self.checkpoint_cache, self.history[:-1])
         else:
             wedge_statement = (self.checkpoint_cache, self.history)
@@ -1114,6 +1167,8 @@ class Replica(process):
         if self.failures is not None:
             check_failure_phase_3(WEDGE_REQUEST_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
+            logger.info('dropping the wedge-request')
+            print(self, ' dropping the wedge-request')
             self.failure_trigger_dict[DROP] = False
             return
         print(self, ' receiving wedge')

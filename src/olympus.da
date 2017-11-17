@@ -121,7 +121,8 @@ class Olympus(process):
                      replica_fail[i],
                      head_replica_id,
                      test_case,
-                     self
+                     self,
+                     self.t
                      ))
             else:
                 setup(
@@ -141,7 +142,8 @@ class Olympus(process):
                      [],
                      head_replica_id,
                      test_case,
-                     self
+                     self,
+                     self.t
                      ))
 
         start(replicas)
