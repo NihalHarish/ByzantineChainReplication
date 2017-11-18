@@ -175,6 +175,7 @@ class Client(process):
 
         if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
+                print('what the helllll')
                 self.request_number += 1
                 print('Successful Retransmission')
             else:
