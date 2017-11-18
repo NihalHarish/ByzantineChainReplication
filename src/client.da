@@ -138,8 +138,9 @@ class Client(process):
         for replica in self.replicas:
             send(('retransmission', payload, signature), to=replica)
 
-        if await(some(received(('result', finale_result)))):
+        if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
+                print('what the helllll')
                 self.request_number += 1
             else:
                 print('Invalid Result Proof: Informing Olympus: Exit')

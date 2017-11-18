@@ -32,8 +32,8 @@ class Replica(process):
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
               client_keys: dict, failures: instance,
-              head_replica_id: str, test_case: str, olympus: instance, t: int,
-              running_state: dict
+              running_state: dict, head_replica_id: str,
+              test_case: str, olympus: instance, t: int
               ):
         self.unique_id = unique_id
         self.running_state = running_state
@@ -103,6 +103,7 @@ class Replica(process):
         self.checkpoint_cache = None
 
         self.replica_life = False
+        self.invalid_bytes = SHA256.new('invalid'.encode('utf-8')).digest()
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -305,7 +306,7 @@ class Replica(process):
             self.failure_trigger_dict[INVALID_RESULT_SIG] = False
             logger.info('invalid result proof signature performed')
             print(self, ' invalid result proof signature performed')
-            signature = self.passport.sign('invalid_signature', '')
+            signature = self.passport.sign(invalid_bytes, '')
         else:
             signature = self.passport.sign(result_statement_hash, '')
 
@@ -336,7 +337,7 @@ class Replica(process):
             self.failure_trigger_dict[INVALID_ORDER_SIG] = False
             logger.info('invalid order proof signature performed')
             print(self, ' invalid order proof signature performed')
-            signature = self.passport.sign('invalid_signature', '')
+            signature = self.passport.sign(invalid_bytes, '')
         else:
             signature = self.passport.sign(order_statement_hash, '')
         return (signature, order_statement, self.unique_id)
@@ -494,6 +495,7 @@ class Replica(process):
                 logger.error('Order proof verification failed')
                 print('Order proof verification failed ',
                       replica_id)
+                return False
         return True
 
     def populate_order_proof(order_proof_list):
@@ -622,7 +624,9 @@ class Replica(process):
                             _go_to_sleep()
                         elif action == INCREMENT_SLOT:
                             failure_trigger_dict[action] = False
-                            update_current_slot_number()
+                            if self.isHead:
+                                print('Head is incrementing slot')
+                                update_current_slot_number()
                         elif action == EXTRA_OP:
                             logger.info('failure: perform {a:a}')
                             print(self, ' failure: perform {a:a}')
@@ -644,7 +648,9 @@ class Replica(process):
                         _go_to_sleep()
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
-                        update_current_slot_number()
+                        if self.isHead:
+                            print('Head is incrementing slot')
+                            update_current_slot_number()
                     elif action == EXTRA_OP:
                         logger.info('failure: perform {a:a}')
                         print(self, ' failure: perform {a:a}')
@@ -668,7 +674,9 @@ class Replica(process):
                         _go_to_sleep()
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
-                        update_current_slot_number()
+                        if self.isHead:
+                            print('Head is incrementing slot')
+                            update_current_slot_number()
                     elif action == EXTRA_OP:
                         logger.info('failure: perform {a:a}')
                         print(self, ' failure: perform {a:a}')
@@ -679,7 +687,7 @@ class Replica(process):
         failure_trigger_dict[SLEEP] = False
         logger.info('going to sleep')
         print(self, 'going to sleep')
-        time.sleep(3)
+        time.sleep(30)
 
     def _crash():
         failure_trigger_dict[CRASH] = False
@@ -749,7 +757,7 @@ class Replica(process):
                     shuttle_msg = generate_shuttle_message(
                         self.result_proof,
                         self.order_proof,
-                        self.current_slot,
+                        shuttle_msg[SHUTTLE_SLOT],
                         operation,
                         checksum,
                         client_id,
@@ -797,7 +805,6 @@ class Replica(process):
                              to=self.clients[client_id])
                         logger.info('Shuttle has arrived at tail.\
                                 Running state: {0}'.format(str(self.running_state)))
-                        # time.sleep(10)  Uncomment this for forwarded_request
                         send(('result_shuttle', result_shuttle_msg),
                              to=prev_replica)
                     else:
@@ -805,22 +812,21 @@ class Replica(process):
                 else:
                     logger.error('Replica becomes immutable as result \
                             proof validation failed')
-                    print('Replica becomes immutable as result \
-                            proof validation failed')
+                    print('Replica becomes immutable as result proof validation failed')
                     self.mode = REPLICA_IMMUTABLE
                     print(self, 'here1')
                     send(('reconfigure-request'), to=olympus)
             else:
                 logger.error('Replica becomes immutable as order \
                         proof validation failed')
-                print('Replica becomes immutable as order \
-                        proof validation failed')
+                print('Replica becomes immutable as order proof validation failed')
                 self.mode = REPLICA_IMMUTABLE
                 print(self, 'here2')
                 send(('reconfigure-request'), to=olympus)
         else:
             if self.mode != REPLICA_IMMUTABLE:
                 self.mode = REPLICA_IMMUTABLE
+                print(self, ' received bad slot during shuttle')
                 send(('reconfigure-request'), to=olympus)
 
     def validate_complete_result_shuttle(complete_result_proof):
@@ -992,7 +998,8 @@ class Replica(process):
                     truncate_history(signed_checkpoint_payload)
                     send(('checkpoint_proof', signed_checkpoint_payload), to=prev_replica)
         else:
-            print('Couldnot verify checkpoint message')
+            print(self, 'Couldnot verify checkpoint message')
+            send(('reconfigure-request'), to=olympus)
 
     def receive(msg=('checkpoint_proof', signed_checkpoint_list), from_=next_replica):
         if self.failures is not None:
@@ -1050,12 +1057,12 @@ class Replica(process):
         check_failure('forwarded_request', retrans_payload)
         check_failure('client_request', retrans_payload)
         if checksum not in self.retransmission:
-            # self.retransmission.append(checksum)
             self.retransmission[checksum] = client_info[0]
 
         if self.mode == REPLICA_IMMUTABLE:
             reply_to_client = self.clients[client_id]
             logger.info('sending error to client as it is immutable')
+            print('SENDINGGGGGGGG ERROR TO CLIENT AS IT IS IMMUTABLE')
             send(('error', 'immutable'), to=reply_to_client)
 
         elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
@@ -1081,7 +1088,7 @@ class Replica(process):
             logger.info(
                 'sending this result to client {0}'.format(
                     (res, status)))
-            send(('result', (res, proof, status, client_request_id)),
+            send(('retrans-result', (res, proof, status, client_request_id)),
                  to=reply_to_client)
             # after sending the result, remove the entry from retransmission
             del self.retransmission[checksum]
@@ -1092,7 +1099,8 @@ class Replica(process):
                 send(('retransmission', retrans_payload), to=head_replica)
                 if await(some(received(('result_shuttle', payload)))):
                     print('Retransmission request being processed @nonhead')
-                    logger('Retransmission request being processed @nonhead')
+                    print('this is the payload ', payload)
+                    logger.info('Retransmission request being processed @nonhead')
                 elif timeout(self.timeout_val):
                     print ('Timeout occured at @nonhead')
                     logger.error('Timeout occured at @nonhead')
@@ -1102,6 +1110,7 @@ class Replica(process):
                             reconfigure message to Olympus')
                     print(self, 'here4')
                     if self.mode != REPLICA_IMMUTABLE:
+                        self.mode = REPLICA_IMMUTABLE
                         send(('reconfigure-request'), to=olympus)
             else:
                 if not self.waiting_for_result_shuttle[checksum]:
@@ -1111,12 +1120,13 @@ class Replica(process):
                     print('Retransmission request being processed @head')
                     logger.info('Retransmission request being processed @head')
                 elif timeout(self.timeout_val):
-                    logger.info('Timeout expired at Head: \
-                            Have to send reconfigure message to Olympus')
+                    # logger.info('Timeout expired at Head: \
+                    #         Have to send reconfigure message to Olympus')
                     print('Timeout expird at Head: \
                             Have to send reconfigure message to Olympus')
                     print(self, 'here5')
                     if self.mode != REPLICA_IMMUTABLE:
+                        self.mode = REPLICA_IMMUTABLE
                         send(('reconfigure-request'), to=olympus)
 
     def generate_caughtup_signature(caughtup_statement):

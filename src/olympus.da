@@ -132,7 +132,7 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.t
+                     self.config['t']
                      ))
             else:
                 setup(
@@ -154,7 +154,7 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.t
+                     self.config['t']
                      ))
 
         logging.info("Reached point 2")
@@ -217,6 +217,11 @@ class Olympus(process):
         print ('got reconfigure request from ', anyone)
         for repl in replica_list:
             send(('wedge-request'), to=repl)
+        if await(len(setof(p, received(('wedge-response', wedge_statement), from_=p))) == 2*self.config['t'] + 1 ):
+            select_quorum()
+        elif timeout(5):  # timeout for wedge response from replicas
+            print('timeout occured at olympus, during wedge-response')
+            select_quorum()
         # send wedge request to all the replicas
 
 
@@ -275,11 +280,11 @@ class Olympus(process):
 
     def history_difference(big_history, replica_history, replica_checkpoint):
         catch_up = []
-        print('checkpoint ', replica_checkpoint)
+        # print('checkpoint ', replica_checkpoint)
         checkpoint_data = None
         if replica_checkpoint is not None:
-            checkpoint_data = map(lambda x: x[1][1], replica_checkpoint)
-            print('checkpoint ', list(checkpoint_data))
+            checkpoint_data = list(map(lambda x: x[1][1], replica_checkpoint))
+            # print('checkpoint ', checkpoint_data)
         for hist in big_history:
             slot, operation = hist
             if (slot, operation) not in replica_history:
@@ -290,17 +295,17 @@ class Olympus(process):
         return catch_up
 
     def select_quorum():
-        if self.lock:
-            return
-        else:
-            self.lock = True
+        # if self.lock:
+        #     return
+        # else:
+        #     self.lock = True
         print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
         if check_all_history_consistent(selected_quorum):
             longest_history = filter_longest_history(selected_quorum)
-            print('the longest history is ', longest_history)
+            # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
                 _, wedge_statement, replica_id = replica_statement
                 checkpoint, history = wedge_statement
@@ -311,16 +316,12 @@ class Olympus(process):
                 send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
         else:
             print('history is not consistent')
-            self.lock = False
+            # self.lock = False
             select_quorum()
 
     def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
-        # validate the wedge response from the replica
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
-            if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
-                select_quorum()
-
 
     def validate_caughtup_response(signed_running_hash):
        signature, statement, replica_id = signed_running_hash
@@ -346,7 +347,7 @@ class Olympus(process):
             elif self.hashes_for_reference[0][0] != statement:
                 print('dude the hashes are not consistent ', self.hashes_for_reference, statement, rep)
                 self.hashes_for_reference = []
-                self.lock = False
+                # self.lock = False
                 select_quorum()
             else:
                 self.hashes_for_reference.append((statement, replica_id))
@@ -361,8 +362,6 @@ class Olympus(process):
         for replica in self.replica_list:
             nothing = 'nothing'
             send(('die-now', nothing), to=replica)
-            
-        
 
     def receive(msg=('running-state', state), from_=olympus):
         print('received running state ', state)
