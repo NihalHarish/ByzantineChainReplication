@@ -21,6 +21,7 @@ class Client(process):
     def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str, olympus_public_key: instance):
         self.olympus = olympus
         self.config = None
+        self.config_version = 0
         self.request_number = 0
         self.client_id = unique_id  # uuid.uuid4().hex
         self.replica_keys = {}
@@ -42,21 +43,55 @@ class Client(process):
             return True
         return False
 
+    def check_configuration():
+        logging.info(
+            "Client is checking configuration. Current configuration: {0}"
+            .format(self.config_version))
+        signature = sign_message()
+        send(('check_configuration', (self.config_version, signature)), to=self.olympus)
+        logging.info(
+            'Client is waiting for the check configuration response')
+        await(some(received(('current_config', sent_config_version, olympus_signature))))
+        if validate_olympus(olympus_signature):
+            if self.config_version == sent_config_version:
+                logging.info(
+                    'Client has the latest config version')
+            else:
+                logging.info(
+                    'Client needs to update its version'
+                )
+                request_config_from_olympus()
+
+
     def request_config_from_olympus():
         print('Request for config')
         logging.info(
             "Client has requested for config from olympus: " +
             str(olympus))
         signature = sign_message()
+        print('About to send GET_CONFIG')
         send((GET_CONFIG, signature), to=self.olympus)
+        print('Done sending. Now Im going to wait')
         logging.info(
             'Client is waiting for a response from olympus: ' +
             str(olympus))
-        await(some(received((CONFIG_RECEIVED, config, signature))))
+
+        await(some(received((CONFIG_RECEIVED, config, last_operation, signature))))
+        print('Got the message')
         if validate_olympus(signature):
+            print('Validation successfull')
             logging.info("Client has received the config: ", config)
+            if last_operation:
+               #DO operation handling 
+               print('Before Self Request Number: ', self.request_number)
+               self.request_number = last_operation['request_id']
+               print('After Self Request Number: ', self.request_number)
+               logging.info("Last Operation Received")
+            else:
+                print('No last operation')
             return config
         else:
+            print('Validation failed')
             sys.exit(0)
 
     def sign_message():
@@ -138,9 +173,10 @@ class Client(process):
         for replica in self.replicas:
             send(('retransmission', payload, signature), to=replica)
 
-        if await(some(received(('result', finale_result)))):
+        if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
                 self.request_number += 1
+                print('Successful Retransmission')
             else:
                 print('Invalid Result Proof: Informing Olympus: Exit')
                 sys.exit(0)
@@ -150,6 +186,8 @@ class Client(process):
             logging.info(
                 str(client_id) +
                 ': Some replica is in immutable stage: Informing Olympus: Exit')
+            #get_new_configuration()
+            start_over()
             sys.exit(0)
 
         elif timeout(self.request_timeout):
@@ -157,6 +195,7 @@ class Client(process):
             logging.info(
                 str(client_id) +
                 ' : TIMEOUT expired yet again: Informing Olympus: Exit')
+            request_config_from_olympus()
             sys.exit(0)
 
     def make_operation_request():

@@ -37,6 +37,7 @@ class Olympus(process):
         self.replica_public_keys = {}
         self.replica_map = {}
         self.lock = False
+        self.consistent_history = None
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -127,6 +128,7 @@ class Olympus(process):
                      self.client_dict,
                      timeout_val,
                      self.client_public_keys,
+                     self.public_key,
                      replica_fail[i],
                      state,
                      head_replica_id,
@@ -148,6 +150,7 @@ class Olympus(process):
                      self.client_dict,
                      timeout_val,
                      self.client_public_keys,
+                     self.public_key,
                      [],
                      state,
                      head_replica_id,
@@ -204,19 +207,29 @@ class Olympus(process):
             "Olympus has received config request from client: " +
             str(client))
         if validate_client(signed_message):
+            last_operation = None
+            if self.consistent_history:
+                last_operation = self.consistent_history[1] #Extract Operation 
             config_client = craft_client_config(client)
             print('Will be sending config to ', str(client))
             signature = sign_message()
-            send((SEND_CONFIG, config_client, signature), to=client)
+            send((SEND_CONFIG, config_client, last_operation, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
 
+    def generate_signature():
+        return None
+
     def receive(msg=('reconfigure-request'), from_=anyone):
         print ('got reconfigure request from ', anyone)
+        nonce = random.randint(1, 1000)
+        message = self.crypt_key.sign(nonce, '')
+        payload = (message, nonce, self.public_key)
         for repl in replica_list:
-            send(('wedge-request'), to=repl)
+            send(('wedge-request', payload), to=repl)
         # send wedge request to all the replicas
 
+    
 
     def validate_wedge_response(signed_wedge_statement):
        signature, statement, replica_id = signed_wedge_statement
@@ -298,6 +311,9 @@ class Olympus(process):
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
         if check_all_history_consistent(selected_quorum):
             longest_history = filter_longest_history(selected_quorum)
+            self.consistent_history = longest_history
+            print('Inside Select Quorum')
+            print('Consisten History: ', self.consistent_history)
             print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
                 _, wedge_statement, replica_id = replica_statement
@@ -317,7 +333,12 @@ class Olympus(process):
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
             if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
+                print('Select Quorum will be called Now!!!!!')
                 select_quorum()
+
+    def receive(msg=('check_config', message), from_=client):
+        client_config_version, signature = message
+
 
 
     def validate_caughtup_response(signed_running_hash):

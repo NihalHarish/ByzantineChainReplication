@@ -31,7 +31,9 @@ class Replica(process):
               prev_replica: Replica, next_replica: Replica,
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
-              client_keys: dict, failures: instance,
+              client_keys: dict, 
+              olympus_key: instance,
+              failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance):
         self.unique_id = unique_id
@@ -65,6 +67,7 @@ class Replica(process):
         self.head_replica = head
         self.head_replica_id = head_replica_id
         self.logger = None
+        self.olympus_key = olympus_key
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
         self.timeout_val = timeout_val
@@ -659,6 +662,7 @@ class Replica(process):
     def _crash():
         failure_trigger_dict[action] = False
         print('oh buoy its crashing')
+        logging.info("About to crash!")
         logging.shutdown()
         os._exit(-1)
 
@@ -1033,7 +1037,7 @@ class Replica(process):
             logger.info(
                 'sending this result to client {0}'.format(
                     (res, status)))
-            send(('result', (res, proof, status, client_request_id)),
+            send(('retrans-result', (res, proof, status, client_request_id)),
                  to=reply_to_client)
             # after sending the result, remove the entry from retransmission
             del self.retransmission[checksum]
@@ -1129,7 +1133,8 @@ class Replica(process):
         print(self, ' receiving wedge')
         self.mode = REPLICA_IMMUTABLE
         wedge_statement = generate_wedge_statement()
-        signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
+        #signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
+        signed_wedge_message = generate_wedge_statement(wedge_statement)
         # if not self.isTail:
         send(('wedge-response', signed_wedge_message), to=olympus)
 
