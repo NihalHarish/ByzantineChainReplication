@@ -687,13 +687,13 @@ class Replica(process):
         failure_trigger_dict[SLEEP] = False
         logger.info('going to sleep')
         print(self, 'going to sleep')
-        time.sleep(30)
+        time.sleep(3)
 
     def _crash():
         failure_trigger_dict[CRASH] = False
         print(self, ' is crashing')
         logger.info('crashing')
-        logging.shutdown()
+        # logging.shutdown()
         os._exit(-1)
 
 
@@ -938,6 +938,7 @@ class Replica(process):
             print(self, 'here4')
             send(('reconfigure-request'), to=olympus)
 
+
     def validate_checkpoint(checkpoint_list, complete = False):
         reference_hashed_state = None
         reference_slot_number = None
@@ -1097,9 +1098,9 @@ class Replica(process):
                 print('forwarding request to the head')
                 logger.info('forwarding request to the head')
                 send(('retransmission', retrans_payload), to=head_replica)
-                if await(some(received(('result_shuttle', payload)))):
+                if await(some(received(('result_shuttle', big_one)), has=(big_one[CHECKSUM] not in self.result_shuttle_cache) )):
                     print('Retransmission request being processed @nonhead')
-                    print('this is the payload ', payload)
+                    print('this is the payload ', big_one)
                     logger.info('Retransmission request being processed @nonhead')
                 elif timeout(self.timeout_val):
                     print ('Timeout occured at @nonhead')
@@ -1116,7 +1117,7 @@ class Replica(process):
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
                     handle_operation(retrans_payload, client_info)
-                if await(some(received(('result_shuttle', payload)))):
+                if await(some(received(('result_shuttle', big_one)), has=(big_one[CHECKSUM] not in self.result_shuttle_cache))):
                     print('Retransmission request being processed @head')
                     logger.info('Retransmission request being processed @head')
                 elif timeout(self.timeout_val):
