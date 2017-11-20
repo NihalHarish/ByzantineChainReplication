@@ -43,6 +43,26 @@ class Client(process):
             return True
         return False
 
+    '''
+    def check_configuration():
+        logging.info(
+            "Client is checking configuration. Current configuration: {0}"
+            .format(self.config_version))
+        signature = sign_message()
+        send(('check_configuration', (self.config_version, signature)), to=self.olympus)
+        logging.info(
+            'Client is waiting for the check configuration response')
+        await(some(received(('current_config', sent_config_version, olympus_signature))))
+        if validate_olympus(olympus_signature):
+            if self.config_version == sent_config_version:
+                logging.info(
+                    'Client has the latest config version')
+            else:
+                logging.info(
+                    'Client needs to update its version'
+                )
+                request_config_from_olympus()
+    '''
 
     def request_config_from_olympus():
         print('Request for config')
@@ -52,8 +72,7 @@ class Client(process):
         signature = sign_message()
         print('About to send GET_CONFIG')
         send((GET_CONFIG, self.config_number, signature), to=self.olympus)
-        logging.info("Sent request with config number: {0}".format(self.config_number))
-        
+        logging.info("Sent request with config number: {0}".format(self.config_number)) 
         print('Done sending. Now Im going to wait')
         logging.info(
             'Client is waiting for a response from olympus: ' +
@@ -71,7 +90,7 @@ class Client(process):
                #DO operation handling 
                print('Last Operation: ', last_operation)
                print('Before Self Request Number: ', self.request_number)
-               self.request_number = last_operation['request_id']
+               self.request_number = last_operation['request_id'] + 1
                print('After Self Request Number: ', self.request_number)
                logging.info("Last Operation Received")
             else:
@@ -88,11 +107,11 @@ class Client(process):
 
     def craft_operation_payload(operation):
         operation_payload = {}
-        print(
-            '{0}: Operation: {1}'.format(
-                self.client_id,
-                self.request_number),
-            operation)
+        # print(
+        #     '{0}: Operation: {1}'.format(
+        #         self.client_id,
+        #         self.request_number),
+        #     operation)
         operation_payload['opr'] = re.match(
             r'^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
@@ -183,17 +202,17 @@ class Client(process):
             logging.info(
                 str(client_id) +
                 ' : TIMEOUT expired yet again: Informing Olympus: Exit')
-            #self.config = request_config_from_olympus()
             start_over()
             # sys.exit(0)
 
     def make_operation_request():
         workload = self.config['workload']
-        operation_set = parse_workload(workload)
-        for oprn in operation_set[self.request_number:]:
+        operation_set = parse_workload(workload)[self.request_number:]
+        print('************ SIZE OF OPR_SET ********** {0}'.format(operation_set))
+        for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             signature = sign_message()
-            # send(('please_work', payload, signature), to=head)
+            print('sending client request to ',head, oprn)
             send(('client-request', payload, signature), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload),

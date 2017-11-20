@@ -65,6 +65,7 @@ class Olympus(process):
         replica_fail = {}
         for i in failure:
             replica_index = int(i['replica_number'])
+            failure_configuration = int(i['config_number'])
             # we will have to construct a message as follows: (trigger_msg,
             # from_which_client, msg_number, failure_action)
             for failure_operation in i['operations']:
@@ -90,7 +91,8 @@ class Olympus(process):
                     failure_from,
                     failure_message_number,
                     failure_action,
-                    failure_param
+                    failure_configuration,
+                    failure_single_param_regex
                     ]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
@@ -98,7 +100,7 @@ class Olympus(process):
                     replica_fail[replica_index].append(failure_list)
 
         print(replica_fail)
-        logging.info("Reached point 1")
+        # logging.info("Reached point 1")
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
             logging.info("Run: {0}".format(i))
@@ -111,20 +113,20 @@ class Olympus(process):
             next_r = None if isTail else replicas[i + 1]
 
             key, keychain = keys[i]
-            logging.info("Before point 1.1")
+            # logging.info("Before point 1.1")
             if isHead:
-                logging.info('Has entered is Head')
+                # logging.info('Has entered is Head')
                 self.head_node = replica
-                logging.info('Has entered is Head 2')
+                # logging.info('Has entered is Head 2')
                 logging.info("Config: {0}".format(self.config))
                 logging.info("Head Timeout: {0}".format(int(self.config['head_timeout'])))
                 timeout_val = int(self.config['head_timeout'])
-                logging.info('Has entered is Head 3')
+                # logging.info('Has entered is Head 3')
             if isTail:
-                logging.info('Has entered is Tail')
+                # logging.info('Has entered is Tail')
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
-            logging.info("Reached point 1.1")
+            # logging.info("Reached point 1.1")
 
             if i in replica_fail:
                 setup(
@@ -147,7 +149,8 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.config['t']
+                     self.config['t'],
+                     self.config_number
                      ))
             else:
                 setup(
@@ -170,7 +173,8 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.config['t']
+                     self.config['t'],
+                     self.config_number
                      ))
 
         logging.info("Reached point 2")
@@ -252,7 +256,7 @@ class Olympus(process):
             send(('wedge-request', signed_message), to=repl)
         if await(len(setof(p, received(('wedge-response', wedge_statement), from_=p))) == 2*self.config['t'] + 1 ):
             select_quorum()
-        elif timeout(5):  # timeout for wedge response from replicas
+        elif timeout(2):  # timeout for wedge response from replicas
             print('timeout occured at olympus, during wedge-response')
             select_quorum()
         # send wedge request to all the replicas 
