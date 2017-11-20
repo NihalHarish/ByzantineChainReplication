@@ -66,8 +66,10 @@ class Client(process):
         if validate_olympus(signature):
             print('Validation successfull')
             logging.info("Client has received the config: {0}".format(config))
+            logging.info("Last Operation".format(last_operation))
             if last_operation:
                #DO operation handling 
+               print('Last Operation: ', last_operation)
                print('Before Self Request Number: ', self.request_number)
                self.request_number = last_operation['request_id']
                print('After Self Request Number: ', self.request_number)
@@ -160,7 +162,7 @@ class Client(process):
 
         if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
-                print('what the helllll')
+                print('what the hell')
                 self.request_number += 1
                 print('Successful Retransmission')
             else:
@@ -181,13 +183,14 @@ class Client(process):
             logging.info(
                 str(client_id) +
                 ' : TIMEOUT expired yet again: Informing Olympus: Exit')
-            request_config_from_olympus()
+            #self.config = request_config_from_olympus()
+            start_over()
             # sys.exit(0)
 
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)
-        for oprn in operation_set:
+        for oprn in operation_set[self.request_number:]:
             payload = craft_operation_payload(oprn)
             signature = sign_message()
             # send(('please_work', payload, signature), to=head)
@@ -198,13 +201,14 @@ class Client(process):
                           has=finale_payload[-1] == req_id)):
                 pass
             elif timeout(self.request_timeout):
-                print('TIMEOUT HAS EXPIRED')
+                print('Make Operation TIMEOUT HAS EXPIRED')
                 logging.info(str(client_id) + ': TIMEOUT HAS EXPIRED')
                 retransmission_request(payload)
 
     def receive(msg=('result', result), from_=tail):
         if validate_result_proof(result):
             self.request_number += 1
+            print('Request Number has been updated: ', self.request_number)
         else:
             logging.info(
                 'Invalid result_proof from tail: Informing Olympus: Exit')
@@ -221,6 +225,7 @@ class Client(process):
         self.config = request_config_from_olympus()
         self.request_timeout = float(self.config['client_timeout'])
         self.head = self.config['head_node']
+        print("Self.Head is now: ", self.head)
         self.tail = self.config['tail_node']
         self.T = int(self.config['t'])
         self.replicas = self.config['replicas']
