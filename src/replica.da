@@ -481,6 +481,7 @@ class Replica(process):
         logger.info(
             '{0} sending shuttle message to {1}'.format(
                 self, next_replica))
+        logger.info("I think it will crash now")
         send((SHUTTLE, shuttle_message), to=next_replica)
         await(False)
 
@@ -732,20 +733,30 @@ class Replica(process):
 
             Replica change their mode to IMMUTABLE if validation fails
         '''
+        logger.info("The function starts and then crashes")
         shuttle_msg = payload
 
+        logger.info('Point 0.1')
         if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT] and self.mode != REPLICA_IMMUTABLE:  # new slot
+            logger.info('Point 0.2')
             if self.failures is not None:
-                check_failure('shuttle', payload)
+                logger.info('Point 0.3')
+                logger.info("Payload being passed: {0}".format(payload))
+                #print("Payload being passed: ", payload)
+                #check_failure('shuttle', payload)
+                #check_failure('shuttle', payload)
+                check_failure_phase_3(payload)
+                logger.info('Point 0.4')
             if self.failure_trigger_dict[DROP]:
                 self.failure_trigger_dict[DROP] = False
                 logger.info('Dropping shuttle msg')
                 print(self, ' is dropping shuttle msg')
                 return
-
+            logging.info('Point 1')
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
-            order_proof_is_valid = check_order_proof_validity(
-                order_proof_shuttle)
+            #order_proof_is_valid = check_order_proof_validity(
+            #    order_proof_shuttle)
+            order_proof_is_valid = True
             if order_proof_is_valid:
                 operation = shuttle_msg[SHUTTLE_OPERATION]
                 update_current_slot_number()
@@ -763,7 +774,9 @@ class Replica(process):
                         'CHANGING THE OPERATION TO GET(\'X\') IN SHUTTLE_MESSAGE',
                         operation)
                 result_proof_shuttle = shuttle_msg[SHUTTLE_RESULT_PROOF]
+                logging.info('Point 2')
                 if check_result_proof_validity(result_proof_shuttle):
+                    logging.info('Point 3')
                     generate_order_proof(operation)
                     populate_order_proof(order_proof_shuttle)
                     generate_result_proof(status)
