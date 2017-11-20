@@ -43,6 +43,7 @@ class Client(process):
             return True
         return False
 
+    '''
     def check_configuration():
         logging.info(
             "Client is checking configuration. Current configuration: {0}"
@@ -61,7 +62,7 @@ class Client(process):
                     'Client needs to update its version'
                 )
                 request_config_from_olympus()
-
+    '''
 
     def request_config_from_olympus():
         print('Request for config')
