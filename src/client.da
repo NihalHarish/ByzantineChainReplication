@@ -197,7 +197,7 @@ class Client(process):
                 str(client_id) +
                 ' : TIMEOUT expired yet again: Informing Olympus: Exit')
             request_config_from_olympus()
-            sys.exit(0)
+            # sys.exit(0)
 
     def make_operation_request():
         workload = self.config['workload']

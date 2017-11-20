@@ -42,7 +42,7 @@ workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Aff
 
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 
 # failures[0,9] = shuttle(0,5), change_result()
-failures[0,2] = shuttle(0,3), crash()
+failures[0,4] = shuttle(0,3), crash()
 # failures[0,2] = checkpoint(0,1), change_result()
 
 #TEST VALUES

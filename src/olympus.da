@@ -38,6 +38,7 @@ class Olympus(process):
         self.replica_map = {}
         self.lock = False
         self.consistent_history = None
+        self.processing_reconfig = False
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -221,6 +222,9 @@ class Olympus(process):
 
 
     def receive(msg=('reconfigure-request'), from_=anyone):
+        if self.processing_reconfig:  # This will make sure the reconfig request is processed only once
+            return
+        self.processing_reconfig = True
         print ('got reconfigure request from ', anyone)
         signed_message = sign_message()
         for repl in replica_list:
@@ -307,7 +311,7 @@ class Olympus(process):
         #     return
         # else:
         #     self.lock = True
-        print('selecting the freaking quorum ', wedge_responses)
+        print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
@@ -315,7 +319,6 @@ class Olympus(process):
             longest_history = filter_longest_history(selected_quorum)
             self.consistent_history = longest_history
             print('Inside Select Quorum')
-            print('Consisten History: ', self.consistent_history)
             print('the longest history is ', longest_history)
             # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
@@ -325,7 +328,7 @@ class Olympus(process):
                 catch_up_operations = history_difference(longest_history, replica_history, checkpoint)
                 print('sending catchup to ', replica_map[replica_id])
                 print('catchup payload ', catch_up_operations)
-                signed_message = generate_signature()
+                signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
         else:
             print('history is not consistent')
@@ -341,7 +344,6 @@ class Olympus(process):
 
     def receive(msg=('check_config', message), from_=client):
         client_config_version, signature = message
-
 
 
     def validate_caughtup_response(signed_running_hash):
@@ -392,6 +394,8 @@ class Olympus(process):
         print(hashed_statement, random_hash_from_reference)
         if hashed_statement == random_hash_from_reference:
             print('This is a freaking success') #init new replicas all over again and pass new running state
+            self.processing_reconfig = False
+            wedge_responses = []
             kill_replicas()
             t = self.config['t']
             t = 2*t + 1

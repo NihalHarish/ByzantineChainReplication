@@ -1213,7 +1213,7 @@ class Replica(process):
         self.mode = REPLICA_IMMUTABLE
         wedge_statement = generate_wedge_statement()
         #signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
-        signed_wedge_message = generate_wedge_statement(wedge_statement)
+        signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
         # if not self.isTail:
         send(('wedge-response', signed_wedge_message), to=olympus)
 
