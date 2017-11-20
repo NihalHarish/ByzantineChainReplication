@@ -128,7 +128,7 @@ class Olympus(process):
                      self.client_dict,
                      timeout_val,
                      self.client_public_keys,
-                     self.public_key,
+                     self.crypt_key.publickey(),
                      replica_fail[i],
                      state,
                      head_replica_id,
@@ -151,7 +151,7 @@ class Olympus(process):
                      self.client_dict,
                      timeout_val,
                      self.client_public_keys,
-                     self.public_key,
+                     self.crypt_key.publickey(),
                      [],
                      state,
                      head_replica_id,
@@ -231,9 +231,7 @@ class Olympus(process):
         elif timeout(5):  # timeout for wedge response from replicas
             print('timeout occured at olympus, during wedge-response')
             select_quorum()
-        # send wedge request to all the replicas
-
-    
+        # send wedge request to all the replicas 
 
     def validate_wedge_response(signed_wedge_statement):
        signature, statement, replica_id = signed_wedge_statement
@@ -309,7 +307,7 @@ class Olympus(process):
         #     return
         # else:
         #     self.lock = True
-        print('selecting the freaking quorum ')
+        print('selecting the freaking quorum ', wedge_responses)
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
@@ -337,9 +335,9 @@ class Olympus(process):
     def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
-            if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
-                print('Select Quorum will be called Now!!!!!')
-                select_quorum()
+            # if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
+            #    print('Select Quorum will be called Now!!!!!')
+            #    select_quorum()
 
     def receive(msg=('check_config', message), from_=client):
         client_config_version, signature = message

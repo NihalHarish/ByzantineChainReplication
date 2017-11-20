@@ -206,9 +206,9 @@ class Replica(process):
 
     def validate_olympus(message):
         signature, nonce = message
-	if self.olympus_public_key.verify(nonce, signature):
-	    return True
-	return False
+        if self.olympus_public_key.verify(nonce, signature):
+            return True
+        return False
 
 
     def run():
