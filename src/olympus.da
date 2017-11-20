@@ -28,6 +28,7 @@ class Olympus(process):
         self.client_list = client_list
         self.client_public_keys = client_keys
         self.config = {}
+        self.config_number = 0
         self.test_case = test_case
         self.tail_node = None
         self.crypt_key = crypt_key
@@ -204,7 +205,7 @@ class Olympus(process):
             return True
         return False
 
-    def receive(msg=('get_config', signed_message), from_=client):
+    def receive(msg=('get_config', client_config_number, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
         logging.info(
             "Olympus has received config request from client: " +
@@ -212,10 +213,16 @@ class Olympus(process):
         if validate_client(signed_message):
             last_operation = None
             if self.consistent_history:
-                last_operation = self.consistent_history[1] #Extract Operation 
+                print("Self.Consistent History: ", self.consistent_history)
+                last_operation = self.consistent_history[-1][1] #Extract Operation 
+            if client_config_number == self.config_number:
+                self.config_number += 1
             config_client = craft_client_config(client)
-            print('Will be sending config to ', str(client))
+            config_client['config_number'] = self.config_number
+            print('Will be sending config to {0}'.format(str(client)))
             signature = sign_message()
+            logging.info("Received Client Request with config number: {0}".format(client_config_number))
+            logging.info("Sent  Response with config number: {0}".format(config_client['config_number']))
             send((SEND_CONFIG, config_client, last_operation, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
@@ -356,11 +363,6 @@ class Olympus(process):
        else:
            return False  # The result_statement has been changed because of failure injecti
 
-
-    def generate_signature():
-        nonce = random.randint(1, 1000)
-        message = self.crypt_key.sign(nonce, '')
-        return (message, nonce, client_id)
 
     def receive(msg=('caughtup-response', signed_running_hash), from_=rep):
         if validate_caughtup_response(signed_running_hash):
