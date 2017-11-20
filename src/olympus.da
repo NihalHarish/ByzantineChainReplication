@@ -28,6 +28,7 @@ class Olympus(process):
         self.client_list = client_list
         self.client_public_keys = client_keys
         self.config = {}
+        self.config_number = 0
         self.test_case = test_case
         self.tail_node = None
         self.crypt_key = crypt_key
@@ -64,6 +65,7 @@ class Olympus(process):
         replica_fail = {}
         for i in failure:
             replica_index = int(i['replica_number'])
+            failure_configuration = int(i['config_number'])
             # we will have to construct a message as follows: (trigger_msg,
             # from_which_client, msg_number, failure_action)
             for failure_operation in i['operations']:
@@ -79,14 +81,16 @@ class Olympus(process):
                     failure_trigger_msg,
                     failure_from,
                     failure_message_number,
-                    failure_action]  # False, means dont execute now
+                    failure_action,
+                    failure_configuration
+                    ]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
                 else:
                     replica_fail[replica_index].append(failure_list)
 
         print(replica_fail)
-        logging.info("Reached point 1")
+        # logging.info("Reached point 1")
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
             logging.info("Run: {0}".format(i))
@@ -99,20 +103,20 @@ class Olympus(process):
             next_r = None if isTail else replicas[i + 1]
 
             key, keychain = keys[i]
-            logging.info("Before point 1.1")
+            # logging.info("Before point 1.1")
             if isHead:
-                logging.info('Has entered is Head')
+                # logging.info('Has entered is Head')
                 self.head_node = replica
-                logging.info('Has entered is Head 2')
+                # logging.info('Has entered is Head 2')
                 logging.info("Config: {0}".format(self.config))
                 logging.info("Head Timeout: {0}".format(int(self.config['head_timeout'])))
                 timeout_val = int(self.config['head_timeout'])
-                logging.info('Has entered is Head 3')
+                # logging.info('Has entered is Head 3')
             if isTail:
-                logging.info('Has entered is Tail')
+                # logging.info('Has entered is Tail')
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
-            logging.info("Reached point 1.1")
+            # logging.info("Reached point 1.1")
 
             if i in replica_fail:
                 setup(
@@ -135,7 +139,8 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.config['t']
+                     self.config['t'],
+                     self.config_number
                      ))
             else:
                 setup(
@@ -158,7 +163,8 @@ class Olympus(process):
                      head_replica_id,
                      test_case,
                      self,
-                     self.config['t']
+                     self.config['t'],
+                     self.config_number
                      ))
 
         logging.info("Reached point 2")
@@ -204,7 +210,7 @@ class Olympus(process):
             return True
         return False
 
-    def receive(msg=('get_config', signed_message), from_=client):
+    def receive(msg=('get_config', client_config_number, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
         logging.info(
             "Olympus has received config request from client: " +
@@ -212,10 +218,16 @@ class Olympus(process):
         if validate_client(signed_message):
             last_operation = None
             if self.consistent_history:
-                last_operation = self.consistent_history[1] #Extract Operation 
+                print("Self.Consistent History: ", self.consistent_history)
+                last_operation = self.consistent_history[-1][1] #Extract Operation 
+            if client_config_number == self.config_number:
+                self.config_number += 1
             config_client = craft_client_config(client)
-            print('Will be sending config to ', str(client))
+            config_client['config_number'] = self.config_number
+            print('Will be sending config to {0}'.format(str(client)))
             signature = sign_message()
+            logging.info("Received Client Request with config number: {0}".format(client_config_number))
+            logging.info("Sent  Response with config number: {0}".format(config_client['config_number']))
             send((SEND_CONFIG, config_client, last_operation, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
@@ -232,7 +244,7 @@ class Olympus(process):
             send(('wedge-request', signed_message), to=repl)
         if await(len(setof(p, received(('wedge-response', wedge_statement), from_=p))) == 2*self.config['t'] + 1 ):
             select_quorum()
-        elif timeout(5):  # timeout for wedge response from replicas
+        elif timeout(2):  # timeout for wedge response from replicas
             print('timeout occured at olympus, during wedge-response')
             select_quorum()
         # send wedge request to all the replicas 
@@ -356,11 +368,6 @@ class Olympus(process):
        else:
            return False  # The result_statement has been changed because of failure injecti
 
-
-    def generate_signature():
-        nonce = random.randint(1, 1000)
-        message = self.crypt_key.sign(nonce, '')
-        return (message, nonce, client_id)
 
     def receive(msg=('caughtup-response', signed_running_hash), from_=rep):
         if validate_caughtup_response(signed_running_hash):

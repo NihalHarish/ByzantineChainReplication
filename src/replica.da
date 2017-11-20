@@ -36,7 +36,7 @@ class Replica(process):
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
-              t: int):
+              t: int, config_number: int):
         self.unique_id = unique_id
         self.running_state = running_state
         self.history = []
@@ -53,7 +53,6 @@ class Replica(process):
         self.isHead = isHead
         self.isTail = isTail
         self.current_slot = 0
-        self.config_number = 1
         self.retransmission = {}
         self.waiting_for_result_shuttle = {}
         self.passport = key
@@ -107,6 +106,7 @@ class Replica(process):
 
         self.replica_life = False
         self.invalid_bytes = SHA256.new('invalid'.encode('utf-8')).digest()
+        self.config_number = config_number
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -608,7 +608,10 @@ class Replica(process):
         for failure_tuple in self.failures:
             if type_failure in failure_tuple:
                 _, from_which_client, \
-                    message_number, action = failure_tuple
+                    message_number, action, failure_config_number = failure_tuple
+                print('Failure config number {0} and current config number {1}'.format(failure_config_number, self.config_number))
+                if failure_config_number != self.config_number:
+                    continue
                 # extract message number and client id from the payload
                 # then check the index of the client id in the client list and
                 # try matching it with the client mentioned in the failure
@@ -672,7 +675,9 @@ class Replica(process):
         for failure_tuple in self.failures:
             print(failure_tuple, type_failure)
             if type_failure in failure_tuple:
-                _, _, message_number, action = failure_tuple
+                _, _, message_number, action, failure_config_number = failure_tuple
+                if failure_config_number != self.config_number:
+                    continue
                 self.fuck_failure[type_failure] += 1
                 if self.fuck_failure[type_failure] == message_number:
                     logger.info('Setting {0} failure'.format(type_failure))
