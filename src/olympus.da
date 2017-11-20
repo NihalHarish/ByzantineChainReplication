@@ -219,16 +219,13 @@ class Olympus(process):
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
 
-    def generate_signature():
-        return None
 
     def receive(msg=('reconfigure-request'), from_=anyone):
         print ('got reconfigure request from ', anyone)
-        nonce = random.randint(1, 1000)
-        message = self.crypt_key.sign(nonce, '')
-        payload = (message, nonce, self.public_key)
+        signed_message = sign_message()
         for repl in replica_list:
-            send(('wedge-request', payload), to=repl)
+            #send(('wedge-request'), to=repl)
+            send(('wedge-request', signed_message), to=repl)
         if await(len(setof(p, received(('wedge-response', wedge_statement), from_=p))) == 2*self.config['t'] + 1 ):
             select_quorum()
         elif timeout(5):  # timeout for wedge response from replicas
@@ -330,7 +327,8 @@ class Olympus(process):
                 catch_up_operations = history_difference(longest_history, replica_history, checkpoint)
                 print('sending catchup to ', replica_map[replica_id])
                 print('catchup payload ', catch_up_operations)
-                send(('catchup-request', catch_up_operations), to= replica_map[replica_id])
+                signed_message = generate_signature()
+                send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
         else:
             print('history is not consistent')
             # self.lock = False

@@ -32,7 +32,7 @@ class Replica(process):
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
               client_keys: dict, 
-              olympus_key: instance,
+              olympus_public_key: instance,
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
@@ -68,7 +68,7 @@ class Replica(process):
         self.head_replica = head
         self.head_replica_id = head_replica_id
         self.logger = None
-        self.olympus_key = olympus_key
+        self.olympus_public_key = olympus_public_key
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
         self.timeout_val = timeout_val
@@ -203,6 +203,13 @@ class Replica(process):
             '%(asctime)s - %(levelname)s - %(message)s')
         fh.setFormatter(formatter)
         logger.addHandler(fh)
+
+    def validate_olympus(message):
+        signature, nonce = message
+	if self.olympus_public_key.verify(nonce, signature):
+	    return True
+	return False
+
 
     def run():
         '''
@@ -690,13 +697,13 @@ class Replica(process):
         failure_trigger_dict[SLEEP] = False
         logger.info('going to sleep')
         print(self, 'going to sleep')
-        time.sleep(30)
+        time.sleep(3)
 
     def _crash():
         failure_trigger_dict[CRASH] = False
         print(self, ' is crashing')
         logger.info('crashing')
-        logging.shutdown()
+        # logging.shutdown()
         os._exit(-1)
 
 
@@ -941,6 +948,7 @@ class Replica(process):
             print(self, 'here4')
             send(('reconfigure-request'), to=olympus)
 
+
     def validate_checkpoint(checkpoint_list, complete = False):
         reference_hashed_state = None
         reference_slot_number = None
@@ -1100,9 +1108,9 @@ class Replica(process):
                 print('forwarding request to the head')
                 logger.info('forwarding request to the head')
                 send(('retransmission', retrans_payload), to=head_replica)
-                if await(some(received(('result_shuttle', payload)))):
+                if await(some(received(('result_shuttle', big_one)), has=(big_one[CHECKSUM] not in self.result_shuttle_cache) )):
                     print('Retransmission request being processed @nonhead')
-                    print('this is the payload ', payload)
+                    print('this is the payload ', big_one)
                     logger.info('Retransmission request being processed @nonhead')
                 elif timeout(self.timeout_val):
                     print ('Timeout occured at @nonhead')
@@ -1119,7 +1127,7 @@ class Replica(process):
                 if not self.waiting_for_result_shuttle[checksum]:
                     # We have create a new slot and perform fresh new operation
                     handle_operation(retrans_payload, client_info)
-                if await(some(received(('result_shuttle', payload)))):
+                if await(some(received(('result_shuttle', big_one)), has=(big_one[CHECKSUM] not in self.result_shuttle_cache))):
                     print('Retransmission request being processed @head')
                     logger.info('Retransmission request being processed @head')
                 elif timeout(self.timeout_val):
@@ -1138,10 +1146,13 @@ class Replica(process):
         signature = self.passport.sign(caught_up_statement_hash , '')
         return (signature, caughtup_statement, self.unique_id)
 
-    def receive(msg=('catchup-request', sequence_of_operations), from_=olympus):
+    def receive(msg=('catchup-request', sequence_of_operations, signed_message), from_=olympus):
         # perform the sequence of operations in the current running state
         # send the hash of the current running state to the olympus
         # send caught up response
+        if validate_olympus(signed_message) == False:
+            logger.info('Olympus validation has failed for catchup request')
+            return
         if self.failures is not None:
             check_failure_phase_3(CATCH_UP_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
@@ -1186,8 +1197,11 @@ class Replica(process):
             wedge_statement = (self.checkpoint_cache, self.history)
         return wedge_statement
 
-    def receive(msg=('wedge-request'), from_=olympus):
+    def receive(msg=('wedge-request', signed_message), from_=olympus):
         # validate if it came from the olympus: TODO
+        if validate_olympus(signed_message) == False:
+            logger.info("Olympus Validation Failed")
+            return
         if self.failures is not None:
             check_failure_phase_3(WEDGE_REQUEST_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
