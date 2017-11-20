@@ -22,7 +22,9 @@ from constants import RESULT_SHUTTLE_FAILURE_TRIGGER, \
     INVALID_ORDER_SIG, INVALID_RESULT_SIG, DROP_CHECKPOINT_STMTS, \
     WEDGE_REQUEST_FAILURE_TRIGGER, NEW_CONFIGURATION_FAILURE_TRIGGER,\
     CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER,\
-    GET_RUNNING_STATE_FAILURE_TRIGGER, CATCH_UP_FAILURE_TRIGGER
+    GET_RUNNING_STATE_FAILURE_TRIGGER, CATCH_UP_FAILURE_TRIGGER,\
+    CLIENT_SIGNATURE
+
 
 
 class Replica(process):
@@ -359,13 +361,12 @@ class Replica(process):
         self.order_proof = []
         self.order_proof.append(signed_order_statement)
 
-    def generate_history_statement(slot, operation, order_proof):
+    def generate_history_statement(slot, operation, order_proof, client_signature):
         '''
             Creates history statement of the form
-            (slot_number, operation, order_proof)
+            (slot_number, operation, order_proof, client_signature)
         '''
-        # history_statement = json.dumps((slot, operation, order_proof))
-        history_statement = (slot, operation, order_proof)
+        history_statement = (slot, operation, order_proof, client_signature)
         return history_statement
 
     def add_to_history(history_statement):
@@ -415,10 +416,11 @@ class Replica(process):
                 operation = _change_operation(operation)
             generate_result_proof(status)
             generate_order_proof(operation)
-            update_history(self.current_slot, operation, self.order_proof)
-            client_id, client_request_id = client_info
+            client_id, client_request_id, client_signature = client_info
+            update_history(self.current_slot, operation, self.order_proof, client_signature)
+            client_load = (client_id, client_request_id)
             client_info_checksum = SHA256.new(
-                json.dumps(client_info).encode('utf-8')).hexdigest()
+                json.dumps(client_load).encode('utf-8')).hexdigest()
             wait_for_result_shuttle(client_info_checksum)
             shuttle_msg = generate_shuttle_message(
                 self.result_proof,
@@ -427,7 +429,8 @@ class Replica(process):
                 operation,
                 client_info_checksum,
                 client_id,
-                client_request_id)
+                client_request_id,
+                client_signature)
             dispatch_shuttle_message(shuttle_msg)
 
     def compute_hash_of_ok():
@@ -458,9 +461,9 @@ class Replica(process):
         signed_order_statement = sign_order_statement(order_statement)
         add_to_order_proof(signed_order_statement)
 
-    def update_history(slot, operation, order_proof):
+    def update_history(slot, operation, order_proof, client_signature):
         history_statement = generate_history_statement(slot,
-                                                       operation, order_proof)
+                                                       operation, order_proof, client_signature)
         add_to_history(history_statement)
 
     def wait_for_result_shuttle(checksum):
@@ -578,7 +581,7 @@ class Replica(process):
             operation['payload'] = {}
             operation['payload']['key'] = client_payload['payload']['key']
             operation['payload']['value'] = client_payload['payload']['value']
-            client_info = (operation['client_id'], operation['request_id'])
+            client_info = (operation['client_id'], operation['request_id'], client_signature)
             checkpoint_count += 1
             if checkpoint_count % checkpoint_limit == 0:
                 print('the checkpoint count is ', checkpoint_count, checkpoint_limit)
@@ -763,8 +766,9 @@ class Replica(process):
                     populate_order_proof(order_proof_shuttle)
                     generate_result_proof(status)
                     populate_result_proof(result_proof_shuttle)
+                    client_signature = shuttle_msg[CLIENT_SIGNATURE]
                     update_history(self.current_slot, operation,
-                                   self.order_proof)
+                                   self.order_proof, client_signature)
                     checksum = shuttle_msg[CHECKSUM]
                     client_id = shuttle_msg[CLIENT_ID]
                     client_request_id = shuttle_msg[CLIENT_REQUEST_ID]
@@ -776,7 +780,8 @@ class Replica(process):
                         operation,
                         checksum,
                         client_id,
-                        client_request_id)
+                        client_request_id,
+                        client_signature)
                     if self.isTail:
                         result_shuttle_msg = shuttle_msg
                         result_shuttle_msg[RESULT] = self.running_state
@@ -1060,9 +1065,11 @@ class Replica(process):
         if not validate_client_signature(client_signature):
             return
         client_info = (retrans_payload['client_id'],
+                       retrans_payload['request_number'], client_signature)
+        client_load = (retrans_payload['client_id'],
                        retrans_payload['request_number'])
         client_id = retrans_payload['client_id']
-        checksum = SHA256.new(json.dumps(client_info).
+        checksum = SHA256.new(json.dumps(client_load).
                               encode('utf-8')).hexdigest()
 
         if client_id not in self.failure_forward_request_number:
@@ -1220,7 +1227,7 @@ class Replica(process):
         #signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
         signed_wedge_message = generate_signed_wedge_statement(wedge_statement)
         # if not self.isTail:
-        send(('wedge-response', signed_wedge_message), to=olympus)
+        send(('wedge-response', signed_wedge_message, self.config_number), to=olympus)
 
     def generate_client_result_message(result_shuttle):
         '''
@@ -1232,7 +1239,7 @@ class Replica(process):
             .encode('utf-8')
 
     def generate_shuttle_message(result_proof, order_proof, slot,
-                                 operation, checksum, client_id, request_id):
+                                 operation, checksum, client_id, request_id, client_signature):
         '''
             This is a method to generate shuttle message
         '''
@@ -1244,6 +1251,7 @@ class Replica(process):
         shuttle_msg[CHECKSUM] = checksum
         shuttle_msg[CLIENT_ID] = client_id
         shuttle_msg[CLIENT_REQUEST_ID] = request_id
+        shuttle_msg[CLIENT_SIGNATURE] = client_signature
         return shuttle_msg
 
 

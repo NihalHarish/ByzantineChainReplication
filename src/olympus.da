@@ -220,8 +220,8 @@ class Olympus(process):
             if self.consistent_history:
                 print("Self.Consistent History: ", self.consistent_history)
                 last_operation = self.consistent_history[-1][1] #Extract Operation 
-            if client_config_number == self.config_number:
-                self.config_number += 1
+            # if client_config_number == self.config_number:
+            #     self.config_number += 1
             config_client = craft_client_config(client)
             config_client['config_number'] = self.config_number
             print('Will be sending config to {0}'.format(str(client)))
@@ -242,12 +242,13 @@ class Olympus(process):
         for repl in replica_list:
             #send(('wedge-request'), to=repl)
             send(('wedge-request', signed_message), to=repl)
-        if await(len(setof(p, received(('wedge-response', wedge_statement), from_=p))) == 2*self.config['t'] + 1 ):
-            select_quorum()
-        elif timeout(2):  # timeout for wedge response from replicas
-            print('timeout occured at olympus, during wedge-response')
-            select_quorum()
-        # send wedge request to all the replicas 
+        if await(some(received(('wedge-response', wedge_statement, version)), has=(version == self.config_number))):
+            print('oh god it received ', version, self.config_number)
+            if await(len(setof(p, received(('wedge-response', wedge_statement, version), from_=p))) == 2*self.config['t'] + 1):
+                 select_quorum()
+            elif timeout(2):  # timeout for wedge response from replicas
+                print('timeout occured at olympus, during wedge-response')
+                select_quorum()
 
     def validate_wedge_response(signed_wedge_statement):
        signature, statement, replica_id = signed_wedge_statement
@@ -266,27 +267,32 @@ class Olympus(process):
             for now we are interested only in history
         '''
         temp_history = {}
-        order_proof_length_map = {}
+        client_validation = {}
+        # order_proof_length_map = {}
         for replica_statement in quorum_list:
             # TODO: decrypt the wedge statement
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
+            # if len(history) == 0:
+            #     continue
             for history_statement in history:
                 # TODO: decrypt the order proof 
-                slot, operation, order_proof = history_statement
-                if slot not in temp_history:
-                    temp_history[slot] = operation
-                    order_proof_length_map[slot] = len(order_proof)
+                slot, operation, order_proof, client_signature = history_statement
+                if validate_client(client_signature):
+                    if slot not in temp_history:
+                        temp_history[slot] = operation
+                        # order_proof_length_map[slot] = (len(order_proof), client_signature)
+                    else:
+                        # order_proof_length_map[slot] = max(order_proof_length_map[slot],\
+                        #         len(order_proof))
+                        if operation != temp_history[slot]:
+                            return False
                 else:
-                    order_proof_length_map[slot] = max(order_proof_length_map[slot],\
-                            len(order_proof))
-                    if operation != temp_history[slot]:
-                        return False
+                    return False
         # checking if all order proofs have atleast size t + 1
-        print(2, order_proof_length_map)
-        for sizes_of_order_proof in order_proof_length_map.values():
-            if sizes_of_order_proof < self.config['t'] + 1:
-                return False
+        # for (sizes_of_order_proof, client_signature) in order_proof_length_map.values():
+        #     if sizes_of_order_proof < self.config['t'] + 1 or validate_client(client_signature):
+        #         return False
         return True
 
     def filter_longest_history(selected_quorum):
@@ -296,10 +302,16 @@ class Olympus(process):
         for replica_statement in selected_quorum:
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
+            print('Error', history)
+            if len(history) == 0:
+                print('history len is 0')
+                continue
             if history[-1] is not None:
                 if history[-1][0] > max_slot_number:
                     max_history = history
                     max_slot_number = history[-1][0]
+        if max_history is None:
+            return []
         return list(map(lambda x: (x[0], x[1]), max_history))  # return only slot and operation
 
     def history_difference(big_history, replica_history, replica_checkpoint):
@@ -328,9 +340,9 @@ class Olympus(process):
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
         if check_all_history_consistent(selected_quorum):
+            print('Inside Select Quorum')
             longest_history = filter_longest_history(selected_quorum)
             self.consistent_history = longest_history
-            print('Inside Select Quorum')
             print('the longest history is ', longest_history)
             # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
@@ -347,7 +359,8 @@ class Olympus(process):
             # self.lock = False
             select_quorum()
 
-    def receive(msg=('wedge-response', wedge_statement), from_=some_replica):
+    def receive(msg=('wedge-response', wedge_statement, version), from_=some_replica):
+        print('receiving wedge response from ', some_replica)
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
             # if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
@@ -402,6 +415,7 @@ class Olympus(process):
         if hashed_statement == random_hash_from_reference:
             print('This is a freaking success') #init new replicas all over again and pass new running state
             self.processing_reconfig = False
+            self.config_number += 1
             wedge_responses = []
             kill_replicas()
             t = self.config['t']

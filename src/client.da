@@ -21,7 +21,7 @@ class Client(process):
     def setup(olympus: instance, unique_id: str, crypt_key: instance, test_case: str, olympus_public_key: instance):
         self.olympus = olympus
         self.config = None
-        self.config_number = 0
+        self.config_number = -1
         self.request_number = 0
         self.client_id = unique_id  # uuid.uuid4().hex
         self.replica_keys = {}
@@ -72,13 +72,13 @@ class Client(process):
         signature = sign_message()
         print('About to send GET_CONFIG')
         send((GET_CONFIG, self.config_number, signature), to=self.olympus)
-        logging.info("Sent request with config number: {0}".format(self.config_number)) 
+        logging.info("Sent request with config number: {0}".format(self.config_number))
         print('Done sending. Now Im going to wait')
         logging.info(
             'Client is waiting for a response from olympus: ' +
             str(olympus))
 
-        await(some(received((CONFIG_RECEIVED, config, last_operation, signature)), has=(config['config_number'] != self.config_number)))
+        await(some(received((CONFIG_RECEIVED, config, last_operation, signature)), has=(config['config_number'] > self.config_number)))
         logging.info("Got response with config number: {0}".format(config['config_number']))
         self.config_number = config['config_number'] #Update config number
         print('Got the message')
@@ -105,11 +105,11 @@ class Client(process):
 
     def craft_operation_payload(operation):
         operation_payload = {}
-        # print(
-        #     '{0}: Operation: {1}'.format(
-        #         self.client_id,
-        #         self.request_number),
-        #     operation)
+        print(
+            '{0}: Operation: {1}'.format(
+                self.client_id,
+                self.request_number),
+            operation)
         operation_payload['opr'] = re.match(
             r'^[^\(]+', operation).group().strip()
         if operation_payload['opr'] == 'get':
@@ -136,7 +136,7 @@ class Client(process):
 
     def parse_workload(workload):
         workload_list = workload.split(';')
-        print('Workload List: ', workload_list)
+        # print('Workload List: ', workload_list)
         operation_set = []
         for work in workload_list:
             operation_set.append(work)
@@ -183,6 +183,7 @@ class Client(process):
                 print('Successful Retransmission')
             else:
                 print('Invalid Result Proof: Informing Olympus: Exit')
+                start_over()
                 sys.exit(0)
 
         elif some(received(('error', _))):
@@ -201,12 +202,12 @@ class Client(process):
                 ' : TIMEOUT expired yet again: Informing Olympus: Exit')
             # request_config_from_olympus()
             start_over()
-            # sys.exit(0)
+            sys.exit(0)
 
     def make_operation_request():
         workload = self.config['workload']
         operation_set = parse_workload(workload)[self.request_number:]
-        print('************ SIZE OF OPR_SET ********** {0}'.format(operation_set))
+        print('NUMBER OF OPERATIONS LEFT ', operation_set)
         for oprn in operation_set:
             payload = craft_operation_payload(oprn)
             signature = sign_message()
@@ -215,7 +216,7 @@ class Client(process):
             req_id = self.request_number
             if await(some(received(('result', finale_payload),
                                    from_=self.tail),
-                          has=finale_payload[-1] == req_id)):
+                          has=(finale_payload[-1] == req_id))):
                 pass
             elif timeout(self.request_timeout):
                 print('TIMEOUT HAS EXPIRED')

@@ -27,6 +27,7 @@ SHUTTLE_SLOT = 'slot'
 SHUTTLE_OPERATION = 'operation'
 SHUTTLE_CHECKSUM = 'checksum'
 SHUTTLE_CLIENT_ID = 'client_id'
+CLIENT_SIGNATURE = 'client-signature'
 SHUTTLE = 'shuttle'
 
 CHECKSUM = 'checksum'
