@@ -75,17 +75,27 @@ class Olympus(process):
                 failure_trigger, failure_action = failure_operation
                 failure_trigger_msg = re.search(r'\w+',
                                                 failure_trigger).group()
+                failure_param = None
                 failure_addresses_regex = re.search(r'(\d+),(\d+)',
                                                     failure_trigger)
-                failure_from = int(failure_addresses_regex.group(1))
-                failure_message_number = int(failure_addresses_regex.group(2))
+                failure_single_param_regex = re.search(r'(\d+)',
+                                                    failure_trigger)
+                failure_from = None
+                failure_message_number = None
+                if failure_addresses_regex:
+                    failure_from = int(failure_addresses_regex.group(1))
+                    failure_message_number = int(failure_addresses_regex.group(2))
+                    failure_params = (failure_from, failure_message_number)
+                elif failure_single_param_regex:
+                    failure_param = int(failure_single_param_regex.group(1))
 
                 failure_list = [
                     failure_trigger_msg,
                     failure_from,
                     failure_message_number,
                     failure_action,
-                    failure_configuration
+                    failure_configuration,
+                    failure_param
                     ]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
@@ -222,7 +232,7 @@ class Olympus(process):
             str(client))
         if validate_client(signed_message):
             last_operation = None
-            if self.consistent_history:
+            if self.consistent_history is not None:
                 print("Self.Consistent History: ", self.consistent_history)
                 for history_elements in self.consistent_history:
                     slot, oprns = history_elements
@@ -237,6 +247,7 @@ class Olympus(process):
             signature = sign_message()
             logging.info("Received Client Request with config number: {0}".format(client_config_number))
             logging.info("Sent  Response with config number: {0}".format(config_client['config_number']))
+            print('The last operation Olympus is sending is: ', last_operation)
             send((SEND_CONFIG, config_client, last_operation, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
@@ -433,15 +444,8 @@ class Olympus(process):
             t = self.config['t']
             t = 2*t + 1
             init_replicas(t, state)
+            logging.info("New replicas have been Spawned")
 
-
-    # def init_logger():
-    #     logging_directory = os.path.join(os.path.dirname(\
-    #             os.path.abspath(__file__)), \
-    #             '../logs/{0}'.format(test_case))
-    #     logging.basicConfig(filename=os.path.join(logging_directory, \
-    #             'olympus.log'), filemode='w', level=logging.INFO)
-    #     logging.info("Olympus has sent config to client: " + str(client))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(

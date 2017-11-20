@@ -68,7 +68,7 @@ def parse_failure_operations(operation_str):
     for operation in operations_tuple_list:
         operations_tuple = re.split(r',\s*(?![^()]*\))', operation)
         operations_list.append(tuple(operations_tuple))
-        # print('Operations Tuple: ', operations_tuple)
+        #print('Operations List: ', operations_list)
     return operations_list
 
 
@@ -108,5 +108,5 @@ def parse_config(config):
 
 if __name__ == '__main__':
     config = load_config()
-    print(config)
+    print(config['test1']['failures'])
     #print(pseudorandom(17, 10))
