@@ -33,18 +33,18 @@ class Replica(process):
               prev_replica: Replica, next_replica: Replica,
               key: instance, keychain: dict, clients_list: instance,
               head: Replica, clients: dict, timeout_val: int,
-              client_keys: dict, 
+              client_keys: dict,
               olympus_public_key: instance,
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
-              t: int, config_number: int):
+              t: int, config_number: int, last_client_operations: dict):
+
         self.unique_id = unique_id
         self.running_state = running_state
         self.history = []
         self.result_proof = []
         self.order_proof = []
-
         self.mode = REPLICA_ACTIVE
         self.prev_replica = prev_replica
         self.next_replica = next_replica
@@ -100,7 +100,7 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 4
+        self.checkpoint_limit = 10
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t
@@ -109,6 +109,7 @@ class Replica(process):
         self.replica_life = False
         self.invalid_bytes = SHA256.new('invalid'.encode('utf-8')).digest()
         self.config_number = config_number
+        self.last_client_operations = last_client_operations
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -627,9 +628,10 @@ class Replica(process):
                     except KeyError:
                         req_id = payload['request_number']
                 client_process = self.clients[client_id]
+                print('Printing failure information {0} {1} {2}'.format(req_id, message_number, self.last_client_operations[client_id]))
                 if type_failure == 'forwarded_request':
                     if self.failure_forward_request_number[client_id] == \
-                            message_number and \
+                            message_number + self.last_client_operations[client_id] and \
                             self.client_list.index(client_process) == \
                             from_which_client:
                         logger.info('A failure has been scheduled to run next')
@@ -648,7 +650,7 @@ class Replica(process):
                             print(self, ' failure: perform {a:a}')
                             failure_trigger_dict[action] = False
                             _put({'key':'a', 'value':'a'})
-                elif req_id == message_number and \
+                elif req_id == message_number + self.last_client_operations[client_id] and \
                         self.client_list.index(client_process) == \
                         from_which_client:
                     logger.info(

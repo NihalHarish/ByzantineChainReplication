@@ -32,6 +32,7 @@ replica_hosts = 0; 1; 2
 # CLIENT WORKLOAD
 workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot')
 
+# workload[2] = put('dude','michael'); append('dude',' scott'); put('love', 'pam'); get('dude'); append('love', ' & Jim'); put('Dwight', 'Shrute'); append('Dwight', ' Angela')
 # FAILURE SCENARIO
 # failures(c,r) is the failure scenario for replica r in configuration c.
 # configurations are numbered starting with 0.  replicas are numbered by
@@ -43,7 +44,7 @@ workload[1] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Aff
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 
 # failures[0,9] = shuttle(0,5), change_result()
 failures[0,4] = shuttle(0,3), crash()
-failures[1,2] = shuttle(0,4), crash()
+failures[1,2] = shuttle(0,2), crash()
 # failures[0,2] = checkpoint(0,1), change_result()
 
 #TEST VALUES
@@ -95,10 +96,8 @@ workload[3] = slice('start', '3:6'); put('watchstanding', 'rules'); slice('watch
 # failure scenario are failure-free.
 # 0th config and 0th replica, the second client sends a message with request number 1, and head decides to crash
 
-# failures[0,0] = forwarded_request(0,2), drop_result_stmt()
-# failures[0,1] = result_shuttle(2,1),change_result()
-failures[0,3] = shuttle(0,2), drop_result_stmt()
-failures[0,1] = result_shuttle(0,1), change_result()
+# failures[0,3] = shuttle(0,2), drop_result_stmt()
+# failures[0,1] = result_shuttle(0,1), change_result()
 
 
 # 0the config and 2nd replica, 0the client sends message req1 to 2nd replica... 

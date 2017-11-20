@@ -40,6 +40,9 @@ class Olympus(process):
         self.lock = False
         self.consistent_history = None
         self.processing_reconfig = False
+        self.last_client_operations = {}
+        for client_ids in client_dict.keys():
+            last_client_operations[client_ids] = 0
 
     def generate_replica_key_pair(replica_id):
         random_generator = Random.new().read
@@ -140,7 +143,8 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
-                     self.config_number
+                     self.config_number,
+                     self.last_client_operations
                      ))
             else:
                 setup(
@@ -164,7 +168,8 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
-                     self.config_number
+                     self.config_number,
+                     self.last_client_operations
                      ))
 
         logging.info("Reached point 2")
@@ -219,7 +224,11 @@ class Olympus(process):
             last_operation = None
             if self.consistent_history:
                 print("Self.Consistent History: ", self.consistent_history)
-                last_operation = self.consistent_history[-1][1] #Extract Operation 
+                for history_elements in self.consistent_history:
+                    slot, oprns = history_elements
+                    some_client_id = oprns['client_id']
+                    if client_dict[some_client_id] == client:
+                        last_operation = oprns #Extract Operation 
             # if client_config_number == self.config_number:
             #     self.config_number += 1
             config_client = craft_client_config(client)
@@ -302,7 +311,7 @@ class Olympus(process):
         for replica_statement in selected_quorum:
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
-            print('Error', history)
+            # print('Error', history)
             if len(history) == 0:
                 print('history len is 0')
                 continue
@@ -343,6 +352,9 @@ class Olympus(process):
             print('Inside Select Quorum')
             longest_history = filter_longest_history(selected_quorum)
             self.consistent_history = longest_history
+            for history_elements in self.consistent_history:
+                slot, oprns = history_elements
+                last_client_operations[oprns['client_id']] = oprns['request_id']  # stores the last request of the client. This will be passed on to the replica
             print('the longest history is ', longest_history)
             # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
