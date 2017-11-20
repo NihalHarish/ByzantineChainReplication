@@ -84,7 +84,7 @@ class Olympus(process):
                     failure_message_number = int(failure_addresses_regex.group(2))
                     failure_params = (failure_from, failure_message_number)
                 elif failure_single_param_regex:
-                    failure_params = int(failure_single_param_regex.group(1))
+                    failure_param = int(failure_single_param_regex.group(1))
 
                 failure_list = [
                     failure_trigger_msg,
@@ -92,7 +92,7 @@ class Olympus(process):
                     failure_message_number,
                     failure_action,
                     failure_configuration,
-                    failure_single_param_regex
+                    failure_param
                     ]  # False, means dont execute now
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
@@ -283,6 +283,7 @@ class Olympus(process):
             # TODO: decrypt the wedge statement
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
+            print('Sample History Statement: ', history[0])
             for history_statement in history:
                 # TODO: decrypt the order proof 
                 slot, operation, order_proof = history_statement
