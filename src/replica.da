@@ -100,7 +100,7 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 10
+        self.checkpoint_limit = 4
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t
@@ -612,8 +612,9 @@ class Replica(process):
         '''
         for failure_tuple in self.failures:
             if type_failure in failure_tuple:
+                print(failure_tuple)
                 _, from_which_client, \
-                    message_number, action, failure_config_number = failure_tuple
+                    message_number, action, failure_config_number, extra_args = failure_tuple
                 print('Failure config number {0} and current config number {1}'.format(failure_config_number, self.config_number))
                 if failure_config_number != self.config_number:
                     continue
@@ -630,6 +631,7 @@ class Replica(process):
                         req_id = payload['request_number']
                 client_process = self.clients[client_id]
                 print('Printing failure information {0} {1} {2}'.format(req_id, message_number, self.last_client_operations[client_id]))
+                print(req_id == message_number + self.last_client_operations[client_id], self.client_list.index(client_process), from_which_client, client_list)
                 if type_failure == 'forwarded_request':
                     if self.failure_forward_request_number[client_id] == \
                             message_number + self.last_client_operations[client_id] and \
@@ -681,11 +683,13 @@ class Replica(process):
         for failure_tuple in self.failures:
             print(failure_tuple, type_failure)
             if type_failure in failure_tuple:
-                _, _, message_number, action, failure_config_number = failure_tuple
+                _, _, message_number, action, failure_config_number, extra_args = failure_tuple
                 if failure_config_number != self.config_number:
                     continue
                 self.fuck_failure[type_failure] += 1
-                if self.fuck_failure[type_failure] == message_number:
+                print(self.fuck_failure[type_failure], extra_args)
+                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (extra_args == self.config_number+1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
+
                     logger.info('Setting {0} failure'.format(type_failure))
                     print('Setting {0} failure'.format(type_failure))
                     failure_trigger_dict[action] = True
@@ -742,10 +746,7 @@ class Replica(process):
             if self.failures is not None:
                 logger.info('Point 0.3')
                 logger.info("Payload being passed: {0}".format(payload))
-                #print("Payload being passed: ", payload)
-                #check_failure('shuttle', payload)
-                #check_failure('shuttle', payload)
-                check_failure_phase_3(payload)
+                check_failure('shuttle', payload)
                 logger.info('Point 0.4')
             if self.failure_trigger_dict[DROP]:
                 self.failure_trigger_dict[DROP] = False
@@ -754,9 +755,7 @@ class Replica(process):
                 return
             logging.info('Point 1')
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
-            #order_proof_is_valid = check_order_proof_validity(
-            #    order_proof_shuttle)
-            order_proof_is_valid = True
+            order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)
             if order_proof_is_valid:
                 operation = shuttle_msg[SHUTTLE_OPERATION]
                 update_current_slot_number()
