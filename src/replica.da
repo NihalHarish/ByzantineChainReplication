@@ -221,6 +221,7 @@ class Replica(process):
         init_logger()
         logger.info('{0}: Replica is running '.format(self))
         print('{0}: Replica is running'.format(self))
+        self.check_failure_phase_3(NEW_CONFIGURATION_FAILURE_TRIGGER)
         await(self.replica_life)
         logger.info('{0}: Replica has died '.format(self))
 
@@ -688,8 +689,9 @@ class Replica(process):
                     continue
                 self.fuck_failure[type_failure] += 1
                 print(self.fuck_failure[type_failure], extra_args)
-                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (extra_args == self.config_number+1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
-
+                print(extra_args == self.config_number - 1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])
+                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (extra_args == self.config_number-1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
+                    print('oh yeahhhhhhhhhhhhhhhhhhhhhh')
                     logger.info('Setting {0} failure'.format(type_failure))
                     print('Setting {0} failure'.format(type_failure))
                     failure_trigger_dict[action] = True
