@@ -72,6 +72,7 @@ def parse_failure_operations(operation_str):
     return operations_list
 
 
+
 def parse_config(config):
     workloads = []
     workload_keys = []
@@ -89,6 +90,7 @@ def parse_config(config):
             config_number = regex_match.group(1)
             replica_number = regex_match.group(2)
             operations = parse_failure_operations(config[key])
+            #print('Operations: ', operations)
             payload = {
                 'config_number': config_number,
                 'replica_number': replica_number,
@@ -108,5 +110,6 @@ def parse_config(config):
 
 if __name__ == '__main__':
     config = load_config()
-    print(config['test1']['failures'])
+    print(config['test1']['workload'])
+    #print(config['test1']['failures'])
     #print(pseudorandom(17, 10))

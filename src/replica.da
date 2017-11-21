@@ -877,10 +877,12 @@ class Replica(process):
                 return False  # The result_statement has been changed because of failure injection
         return True
 
-    def receive(msg=('die-now', nothing), from_=next_replica):
+    def receive(msg=('die-now', signed_message), from_=next_replica):
+        if validate_olympus(signed_message) == False:
+            logger.error("Failed to validate olympus signature for die-now request")
+            return
         self.replica_life = True
         logger.info('The value of self.replica_life has been changed to {0}'.format(self.replica_life))
-        import os
         os._exit(1)
 
     def receive(msg=('result_shuttle', payload), from_=next_replica):

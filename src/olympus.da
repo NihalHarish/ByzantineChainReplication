@@ -243,6 +243,7 @@ class Olympus(process):
             #     self.config_number += 1
             config_client = craft_client_config(client)
             config_client['config_number'] = self.config_number
+            print('Workload: ', config_client['workload'])
             print('Will be sending config to {0}'.format(str(client)))
             signature = sign_message()
             logging.info("Received Client Request with config number: {0}".format(client_config_number))
@@ -433,14 +434,13 @@ class Olympus(process):
             if len(self.hashes_for_reference) == self.config['t'] + 1:
                 print('received hash {0} from {1}'.format(self.hashes_for_reference, replica_id))
                 random_replica = random.choice(self.hashes_for_reference)[1]
-                # signature = generate_signature()
                 send(('get-running-state'), to=replica_map[random_replica])
 
 
     def kill_replicas():
+        signed_message = sign_message()
         for replica in self.replica_list:
-            nothing = 'nothing'
-            send(('die-now', nothing), to=replica)
+            send(('die-now', signed_message), to=replica)
 
     def receive(msg=('running-state', state), from_=olympus):
         print('received running state ', state)
