@@ -281,7 +281,7 @@ class Olympus(process):
        else:
            return False  # The result_statement has been changed because of failure injection
     
-    def validate_order_statments(signed_order_statement):
+    def validate_order_statement(signed_order_statement):
        signature, statement, replica_id = signed_order_statement
        hashed_statement = SHA256.new(
            json.dumps(statement). encode('utf-8')).digest()
