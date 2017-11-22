@@ -90,7 +90,7 @@ class Olympus(process):
 
                 failure_action_param_regex = re.search(r'(\d+)',
                                                     failure_action)
-                failure_action_param = None 
+                failure_action_param = None
                 if failure_action_param_regex:
                     failure_action_param = failure_action_param_regex.group(1)
                     failure_action = parse_failure_action(failure_action)
@@ -197,6 +197,7 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
+                     checkpoint_limit,
                      self.config_number,
                      self.last_client_operations
                      ))
