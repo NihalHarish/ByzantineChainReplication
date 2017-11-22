@@ -115,10 +115,10 @@ github.com/AlDanial/cloc v 1.74  T=0.05 s (170.1 files/s, 32735.5 lines/s)
 --------------------------------------------------------------------------------------------------------
 File                                 blank        comment           code	algorithm	other
 --------------------------------------------------------------------------------------------------------
-src/replica.da                          81              1            932	       712           220
-src/client.da                           23              1            200           151            49
-src/olympus.da                          21              4            187           106            81
-src/config_handler.py                   16              7             89            26            63
+src/replica.da                          81              1            932	    712           220
+src/client.da                           23              1            200            151            49
+src/olympus.da                          21              4            187            106            81
+src/config_handler.py                   16              7             89             26            63
 src/main.da                             15              0             58             0            58
 src/test_suite.py                        5              0             46             0            46
 src/constants.py                         8              1             25             0            25
