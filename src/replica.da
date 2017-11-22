@@ -6,6 +6,7 @@ from Crypto import Random
 import time
 import logging
 import os
+import random
 from constants import RESULT_SHUTTLE_FAILURE_TRIGGER, \
     CLIENT_REQUEST_FAILURE_TRIGGER, \
     SHUTTLE_FAILURE_TRIGGER, FORWARDED_FAILURE_TRIGGER, \
@@ -38,7 +39,7 @@ class Replica(process):
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
-              t: int, config_number: int, last_client_operations: dict):
+              t: int, checkpoint_limit: int, config_number: int, last_client_operations: dict):
 
         self.unique_id = unique_id
         self.running_state = running_state
@@ -89,7 +90,7 @@ class Replica(process):
             DROP_CHECKPOINT_STMTS: False,
 
         }
-        self.fuck_failure = {
+        self.failure_trigger_dict = {
                 WEDGE_REQUEST_FAILURE_TRIGGER: 0,
                 NEW_CONFIGURATION_FAILURE_TRIGGER: 0,
                 CHECKPOINT_FAILURE_TRIGGER: 0,
@@ -100,7 +101,7 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 5
+        self.checkpoint_limit = checkpoint_limit
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t
@@ -209,9 +210,7 @@ class Replica(process):
 
     def validate_olympus(message):
         signature, nonce = message
-        if self.olympus_public_key.verify(nonce, signature):
-            return True
-        return False
+        return self.olympus_public_key.verify(nonce, signature)
 
 
     def run():
@@ -482,7 +481,6 @@ class Replica(process):
         logger.info(
             '{0} sending shuttle message to {1}'.format(
                 self, next_replica))
-        logger.info("I think it will crash now")
         send((SHUTTLE, shuttle_message), to=next_replica)
         await(False)
 
@@ -550,7 +548,7 @@ class Replica(process):
                 if hashed_running_state != result_hash:
                     print(result_proof_list)
                     logger.error('Result proof is INCONSISTENT')
-                    print('>>>>>>>>Result proof is INCONSISTENT')
+                    print('Result proof is INCONSISTENT')
                     return False
             else:
                 return False  # wrong sender
@@ -591,6 +589,7 @@ class Replica(process):
                 checkpoint_statement = generate_checkpoint_statement()
                 signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
                 print('{0} sending checkpoint to {1} {2}'.format(self, next_replica, [signed_checkpoint_msg]))
+                logging.info('{0} sending checkpoint to {1} {2}'.format(self, next_replica, [signed_checkpoint_msg]))
                 send(('checkpoint', [signed_checkpoint_msg]), to=next_replica)
                 checkpoint_count = 1
             handle_operation(operation, client_info)
@@ -617,7 +616,6 @@ class Replica(process):
             logger.info("Failure Tuple: {0}".format(failure_tuple))
             if type_failure in failure_tuple:
                 print(failure_tuple)
-                logger.info("Point A")
                 _, from_which_client, \
                     message_number, action, failure_config_number, extra_args, action_args = failure_tuple
                 print('Failure config number {0} and current config number {1}'.format(failure_config_number, self.config_number))
@@ -698,9 +696,9 @@ class Replica(process):
                 logger.info("Failure action args: {0}".format(action_args))
                 if failure_config_number != self.config_number:
                     continue
-                self.fuck_failure[type_failure] += 1
-                print(self.fuck_failure[type_failure], extra_args, type_failure)
-                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
+                self.failure_trigger_dict[type_failure] += 1
+                print(self.failure_trigger_dict[type_failure], extra_args, type_failure)
+                if (self.failure_trigger_dict[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
                     logger.info('Setting {0} failure'.format(type_failure))
                     print('Setting {0} failure'.format(type_failure))
                     failure_trigger_dict[action] = True
@@ -755,7 +753,6 @@ class Replica(process):
         shuttle_msg = payload
 
         if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT] and self.mode != REPLICA_IMMUTABLE:  # new slot
-            logger.info('Point 0.2')
             if self.failures is not None:
                 check_failure('shuttle', payload)
             if self.failure_trigger_dict[DROP]:
@@ -977,7 +974,6 @@ class Replica(process):
             logger.info('Result proof validation is wrong')
             print('RESULT PROOF IS WRONG, GOING TO IMMUTABLE STAGE')
             self.mode = REPLICA_IMMUTABLE
-            print(self, 'here4')
             send(('reconfigure-request'), to=olympus)
 
 
@@ -1109,8 +1105,8 @@ class Replica(process):
         if self.mode == REPLICA_IMMUTABLE:
             reply_to_client = self.clients[client_id]
             logger.info('sending error to client as it is immutable')
-            # print('SENDINGGGGGGGG ERROR TO CLIENT AS IT IS IMMUTABLE')
-            # send(('error', 'immutable'), to=reply_to_client)
+            print('SENDING ERROR TO CLIENT AS IT IS IMMUTABLE')
+            send(('error', 'immutable'), to=reply_to_client)
 
         elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
             print(self, 'sending result to client from its\
@@ -1155,7 +1151,6 @@ class Replica(process):
                             reconfigure message to Olympus')
                     logger.error('Timeout @nonhead: Have to send \
                             reconfigure message to Olympus')
-                    print(self, 'here4')
                     if self.mode != REPLICA_IMMUTABLE:
                         self.mode = REPLICA_IMMUTABLE
                         send(('reconfigure-request'), to=olympus)
@@ -1171,7 +1166,6 @@ class Replica(process):
                     #         Have to send reconfigure message to Olympus')
                     print('Timeout expird at Head: \
                             Have to send reconfigure message to Olympus')
-                    print(self, 'here5')
                     if self.mode != REPLICA_IMMUTABLE:
                         self.mode = REPLICA_IMMUTABLE
                         send(('reconfigure-request'), to=olympus)
@@ -1209,8 +1203,16 @@ class Replica(process):
         print(self, ' has finished catching up and new state is ',self.running_state, ' and hash is ', caughtup_statement)
         signed_caughtup_statement = generate_caughtup_signature(caughtup_statement)
         send(('caughtup-response', signed_caughtup_statement, self.config_number), to=olympus)
+    
+    def sign_message():
+        nonce = random.randint(1, 1000)
+        message = self.passport.sign(nonce, '') 
+        return (message, nonce)
 
-    def receive(msg=('get-running-state'), from_=olympus):
+    def receive(msg=('get-running-state', signed_olympus_message), from_=olympus):
+        if validate_olympus(signed_olympus_message) == False:
+            logger.info("Olympus Validation Failed at get-running-state")
+            return
         if self.failures is not None:
             check_failure_phase_3(GET_RUNNING_STATE_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
@@ -1219,7 +1221,7 @@ class Replica(process):
             self.failure_trigger_dict[DROP] = False
             return
         print(self, ' has finished catching up and new state is ',self.running_state, ' and hash is ', compute_running_state_hash())
-        send(('running-state', self.running_state, compute_running_state_hash(), self.config_number), to=olympus)
+        send(('running-state', self.running_state, compute_running_state_hash(), self.config_number, sign_message()), to=olympus)
 
     def generate_signed_wedge_statement(wedge_statement):
         wedge_stm = json.dumps(wedge_statement).encode('utf-8')

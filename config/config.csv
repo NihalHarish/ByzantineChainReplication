@@ -17,6 +17,8 @@ client_timeout = 5
 head_timeout = 2
 nonhead_timeout = 4
 
+checkpoint_limit = 5
+
 # MAPPING OF PROCESSES TO HOSTS
 # to simplify changing the hosts, we first specify a semicolon-separated
 # list of hosts, and then use 0-based indices into that list to specify the
@@ -478,3 +480,31 @@ workload[9] = get('start'); slice('start', '2:4'); put('schoolhouses', 'trials')
 
 test_dict = {"fire": " paints", "bangs": " evaluations", "match": " detection rowers", "neutron": " sirs flags", "subsystems": "iver ", "guests": " pra hierarchy", "programmer": " probes", "folder": "ransit", "baseline": "o", "videos": "aina", "sacks": " peck", "ages": " barge", "portions": "romet", "tent": " violet", "apprenticeship": " customs", "harpoons": " tank", "nerve": " diagnosis worlds incomes", "buoy": " doorknobs journals", "girl": "a headers speeches contribution", "gases": " car", "diseases": " capacitance principles services ribs masses", "majority": " flame claws patrol", "blots": " takeoff cone", "cracks": " ovens", "bulkheads": "ems t", "direction": " beams specialization", "hangar": "oops dr", "quantities": " bows", "projects": " dials", "rope": " ball", "wrists": " ices accounts", "allocations": " pound", "insanities": " explosions", "ending": "", "reenlistment": " coal alcoholic ceremony", "programmers": " ", "characteristics": "et", "schoolrooms": " canyons", "show": "count ending carrier basements", "schoolhouses": " trials bond", "servos": " bench numeral vices screw method", "brick": " birth", "curvatures": " challenges method", "extension": "  lent", "yarns": " market", "trips": " section", "explosives": " signalers drawers", "conjectures": " curvatures", "safety": " cans", "paygrade": "t ensign", "railroad": " solenoids", "houses": " fishes crusts", "fort": " influences", "driller": " winch", "adherence": " combinations disadvantage", "seam": "meat screams qualifications", "documentation": " trains", "facts": " energizer", "kilometer": " voids", "couplings": "  sevens percentage deficiencies fathoms", "mules": " fabrication members", "approach": " oscillations", "seawater": " tie sneezes", "entry": " sheet", "laundry": " floods", "technique": " ", "copies": " matter", "visitor": " attorneys", "cages": " investment garages highlines", "wrench": " differences lands", "initials": " electrodes", "batch": "", "error": "hou punishment eligibility", "employee": " note", "cables": " caliber", "bends": "moo times", "hunts": " sight", "loaves": " chiefs", "conduct": " sunrise", "installation": "r", "dependents": " handwriting", "examination": " schooling", "bin": " interrelation", "bite": " bypasses", "edge": "", "operabilities": "jeopardy", "toes": " indications shelters", "requirement": " graphs bracket", "appropriation": " straigh lights perfect", "runner": "e", "feelings": "s fats compromises", "furnace": " limitation drydock generation", "displacement": " foreheads employees", "scabs": " ivory", "spoke": "ysts ", "bytes": " february catch rest", "tube": " hashmark organs", "mud": " step puff discrepancies disposal", "count": " ceremonies court", "storage": " universe", "coxswains": " method", "stories": " sailor radiator", "woman": " tops selectors", "flash": " cubes", "regulations": "dard incentives", "salvage": "ar excuse verb", "recommendations": "s  solutions ceremonies buoy audit", "shave": " riddles", "sailor": " probes dispatcher mouths completion", "averages": " files condition", "sidewalks": "obli", "sleep": " series", "forest": " rumble schooling", "moments": " rejection", "bypass": " stream", "reconfigurations": "ect thing contents", "slope": " song integers", "community": " purchaser", "escorts": " appeals", "item": " threader wires trials", "maximums": " pascal", "segments": " hose", "lines": " superstructure destinations pushup purges valves pay balances", "jacket": " coughs", "grams": " margins", "dittos": "aps", "tens": " cell closures", "september": " coating", "waters": " presentations pushdowns", "items": "k", "partner": "duty ", "waxes": "hion sterilizer accuracy", "striker": " classifications", "seed": " pulls engineers", "mondays": " wafers", "balloon": "eds", "leaper": " removals", "tracker": " temperatures", "hum": " registers", "exhaust": "a", "garages": " replenishments flashes", "prices": " effectiveness", "lifeboats": " vol.", "panel": "l ret", "divider": "ts merchant", "tide": " bubbles cable", "submarine": " diameter", "lack": "gs silence overalls", "subprogram": "oder armaments tear", "servant": " vacuum hunts", "calendars": " bet", "disability": " hazard flow apprehension refund", "fees": " sentence magnitude", "sack": " ampere tactics pit journals disability sprayers", "sevens": " inlets reviews parcel lee", "cushion": " timers", "abrasive": "les conveniences cheater huts mat", "thyristor": " bowl", "heap": "", "plead": " apostrophe", "acre": " abrasives", "initiator": " talk", "foreground": " casts", "armaments": " prisoners", "towels": "resi", "stems": " bather carburetor parentheses gunfire", "project": " maximums adjustments", "hyphens": " rushes", "platters": " terminals", "scream": " cores count", "starts": " beacons chock", "pleads": "", "cycle": " pace", "alibis": " integers bars shore stretcher", "distributor": "ul", "motion": " tunes", "hotel": " accusation workloads", "vendors": "ion", "wiggles": " swallow", "runaway": " perfect", "surveillance": " lap", "fighter": " tabulation", "aprons": " facts prisms", "stocking": " riddle", "hotels": " beliefs", "caves": " humor  knot", "handful": " tasks", "multitask": " deflectors alarm", "contention": " countermeasure", "structure": "j", "threader": " overtime chatter inquiries", "infection": " spill bulkheads shares sack", "cares": " moistures", "utilization": "esidues props", "master": " specialists", "purchaser": " round roll", "calculator": " seat", "splints": " insertions drainers", "inlets": " terrains movements", "loudspeaker": " jeopardy", "reports": " radiator", "trap": " procedure vapor", "runaways": " wiggles tablespoon explosives", "bottles": " gross", "chain": " pressures", "generation": " course puddles", "convulsion": "ings", "investments": " ceiling compressions", "mattress": "ight hoists scraps zip time island nines", "folds": " observation entry", "self": " session", "smokes": "fire handles", "organization": " ca", "submission": " presidents", "ordnance": " rowers", "humans": " step", "civilians": " geo", "port": " ideal", "interactions": " safeguards cents", "pedal": " stretchers polls", "presses": " content", "influences": " shower truth milk", "spark": " execution", "cakes": " democracies habits", "stamps": " choice", "dials": " skills gallows jig distribution", "commitment": " prop", "conn": "label", "lots": " acceptances puffs ladder", "zero": " bristle", "certificate": " resources", "fountain": " tod sock", "challenges": " cloudiness interactions", "swabs": " regulation", "instance": "ar cyl nulls", "sale": " failure", "wedding": " detail individuals carload aggravation", "abbreviation": "erial aptitudes", "operands": " faults", "porter": "mi multiplication", "shift": " nineties significance", "indexes": " bypass", "accomplishments": " c", "stretcher": " swallows"}
 
+# performance test: 3 clients each send 300 pseudorandom operations.  2017-11-12
+test_case_name = perform900
+
+# expected outcome: 
+# no crashes, exceptions, etc.  
+# tail sends 900 result messages to clients.  check for this in the log.
+#  Sample commands to use, assuming tail's log is in tail.log and log entry
+#  for sending a result message contains the string "result_message":
+#  linux, mac os: grep --count result_message tail.log
+#  windows (in PowerShell): find /C `"result_message`" tail.log
+
+# number of failures to tolerate.  number of replicas is 2t+1.
+t = 2
+# number of clients
+num_client = 3
+# client timeout, in milliseconds. 
+client_timeout = 3000
+# timeout, in milliseconds, for head and non-head servers, respectively
+head_timeout = 3000
+nonhead_timeout = 3000
+
+# CLIENT WORKLOAD
+workload[0] = pseudorandom(190,300)
+workload[1] = pseudorandom(191,300)
+workload[2] = pseudorandom(192,300)
+
+# FAILURE SCENARIO
+# no failures

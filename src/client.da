@@ -43,27 +43,6 @@ class Client(process):
             return True
         return False
 
-    '''
-    def check_configuration():
-        logging.info(
-            "Client is checking configuration. Current configuration: {0}"
-            .format(self.config_version))
-        signature = sign_message()
-        send(('check_configuration', (self.config_version, signature)), to=self.olympus)
-        logging.info(
-            'Client is waiting for the check configuration response')
-        await(some(received(('current_config', sent_config_version, olympus_signature))))
-        if validate_olympus(olympus_signature):
-            if self.config_version == sent_config_version:
-                logging.info(
-                    'Client has the latest config version')
-            else:
-                logging.info(
-                    'Client needs to update its version'
-                )
-                request_config_from_olympus()
-    '''
-
     def request_config_from_olympus():
         print('Request for config')
         logging.info(
@@ -102,7 +81,7 @@ class Client(process):
                 print('No last operation')
             return config
         else:
-            print('Validation failed')
+            print('Olympus Validation failed')
             sys.exit(0)
 
     def sign_message():
@@ -186,7 +165,6 @@ class Client(process):
 
         if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
-                print('what the hell')
                 self.request_number += 1
                 print('Successful Retransmission')
             else:

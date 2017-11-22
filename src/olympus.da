@@ -70,6 +70,7 @@ class Olympus(process):
         keys = [generate_replica_key_pair(replica_id)
                 for replica_id in replica_ids]
         failure = self.config['failures']
+        checkpoint_limit = 5 if 'checkpoint_limit' not in self.config else int(self.config['checkpoint_limit'])
         print(failure)
         replica_fail = {}
         for i in failure:
@@ -170,6 +171,7 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
+                     checkpoint_limit,
                      self.config_number,
                      self.last_client_operations
                      ))
@@ -199,7 +201,6 @@ class Olympus(process):
                      self.last_client_operations
                      ))
 
-        logging.info("Reached point 2")
         start(replicas)
         logging.info("Replica init for t = " + str(number) + " is complete")
         self.replica_list = replicas
@@ -214,7 +215,6 @@ class Olympus(process):
             seed = int(seed)
             size = int(size)
             workload = config_handler.pseudorandom(seed, size)
-            print('Workload: ', workload)
         return workload
 
     def craft_client_config(client):
@@ -238,9 +238,7 @@ class Olympus(process):
     def validate_client(message):
         signature, nonce, client_id = message
         public_key = self.client_public_keys[client_id]
-        if public_key.verify(nonce, signature):
-            return True
-        return False
+        return public_key.verify(nonce, signature)
 
     def receive(msg=('get_config', client_config_number, signed_message), from_=client):
         print("Olympus has received config request from client: ", client)
@@ -260,7 +258,6 @@ class Olympus(process):
             #     self.config_number += 1
             config_client = craft_client_config(client)
             config_client['config_number'] = self.config_number
-            print('Workload: ', config_client['workload'])
             print('Will be sending config to {0}'.format(str(client)))
             signature = sign_message()
             logging.info("Received Client Request with config number: {0}".format(client_config_number))
@@ -269,6 +266,8 @@ class Olympus(process):
             send((SEND_CONFIG, config_client, last_operation, signature), to=client)
             logging.info("Olympus has validated client: " + str(client))
             logging.info("Olympus has sent config to client: " + str(client))
+        else:
+            logging.info("Client Validation Failed for get-config request")
 
 
     def receive(msg=('reconfigure-request'), from_=anyone):
@@ -278,10 +277,8 @@ class Olympus(process):
         print ('got reconfigure request from ', anyone)
         signed_message = sign_message()
         for repl in replica_list:
-            #send(('wedge-request'), to=repl)
             send(('wedge-request', signed_message), to=repl)
         if await(some(received(('wedge-response', wedge_statement, version)), has=(version == self.config_number))):
-            # print('oh god it received ', version, self.config_number)
             if await(len(setof(p, received(('wedge-response', wedge_statement, version), from_=p))) == 2*self.config['t'] + 1):
                  select_quorum()
             elif timeout(1):  # timeout for wedge response from replicas
@@ -293,11 +290,7 @@ class Olympus(process):
        hashed_statement = SHA256.new(
            json.dumps(statement). encode('utf-8')).digest()
        public_key = self.replica_public_keys[replica_id]
-       if public_key.verify(hashed_statement, signature):
-           return True
-       else:
-           return False  # The result_statement has been changed because of failure injection
-
+       return public_key.verify(hashed_statement, signature)
 
     def validate_order_statement(signed_order_statement):
         slot = None
@@ -332,6 +325,10 @@ class Olympus(process):
             for history_statement in history:
                 slot, operation, order_proof, client_signature = history_statement
                 # TODO: NIHAL > order proof doesnt work
+                logging.info("About to Validate Order Proof")
+                #if validate_order_statement(order_proof) == False:
+                #    logging.info("Order Proof Validation Failed")
+                #    return False
                 if validate_order_statement(order_proof) == False:
                     logging.info("Order Proof Validation Failed")
                     return False
@@ -381,10 +378,11 @@ class Olympus(process):
         return catch_up
 
     def select_quorum():
-        print('selecting the freaking quorum ')
+        print('selecting the quorum ')
+        logging.info('selecting the quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
-        print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
-                list(map(lambda x: replica_map[x[-1]], wedge_responses)))
+        logging.info('selected quorum: {0}    {1}'.format( list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
+                list(map(lambda x: replica_map[x[-1]], wedge_responses))))
         if check_all_history_consistent(selected_quorum):
             print('Inside Select Quorum')
             longest_history = filter_longest_history(selected_quorum)
@@ -392,6 +390,8 @@ class Olympus(process):
             for history_elements in self.consistent_history:
                 slot, oprns = history_elements
                 last_client_operations[oprns['client_id']] = oprns['request_id']  # stores the last request of the client. This will be passed on to the replica
+            print('the longest history is ', longest_history)
+            logging.info('The longest history is  {0}'.format(longest_history))
             # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
                 _, wedge_statement, replica_id = replica_statement
@@ -399,12 +399,15 @@ class Olympus(process):
                 replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
                 catch_up_operations = history_difference(longest_history, replica_history, checkpoint)
                 print('sending catchup to ', replica_map[replica_id])
+                logging.info('sending catchup to {0}'.format(replica_map[replica_id]))
                 print('catchup payload ', catch_up_operations)
+                logging.info('catchup payload  {0}'.format(catch_up_operations))
                 signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
             if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
                 if await(len(self.hashes_for_reference) >= self.config['t'] + 1):
                     print('received caught up response from t+1 replicas ', self.hashes_for_reference)
+                    logging.info('received caught up response from t+1 replicas {0}'.format(self.hashes_for_reference))
                     send_get_running_state_msg()
                 elif timeout(3):
                     print('caughtup response timedout, selecting quorum again ', len(self.hashes_for_reference))
@@ -413,7 +416,13 @@ class Olympus(process):
                     select_quorum()
         else:
             print('history is not consistent')
+            logging.info('history is not consistent. selecting quorum again')
             select_quorum()
+
+    def validate_replica_signature(replica, signed_message):
+        key = replica_public_keys[replica]
+        sign, message = signed_message
+        return key.verify(message, sign)
 
     def send_get_running_state_msg():
         inconsistent = False
@@ -423,42 +432,46 @@ class Olympus(process):
             if some_hash != compare_hash:
                 inconsistent = True
         if inconsistent:
+            logging.info('The running state hash is inconsistent {0}'.format(self.hashes_for_reference))
             print('The running state hash is inconsistent', self.hashes_for_reference, ' trying once again')
             self.hashes_for_reference = []
             select_quorum()
         else:
-            print('WOHOOOOOOOOOOOOOOOOOO')
             random_replica = random.choice(self.hashes_for_reference)[1]
             # TODO: NIHAL > sign this as well
-            send(('get-running-state'), to=replica_map[random_replica])
-            if await(some(received(('running-state', running_state, running_state_hash, version)), has=(version==self.config_number))):
+            send(('get-running-state', sign_message()), to=replica_map[random_replica])
+            if await(some(received(('running-state', running_state, running_state_hash, version, signed_message)), has=(version==self.config_number))):
+               if validate_replica_signature(random_replica, signed_message) == False:
+                   logging.error("Replica validation failed for get running state")
+                   return 
                running_state_json = json.dumps(running_state).encode('utf-8')
                hashed_statement = SHA256.new(running_state_json).hexdigest()
                random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
                print(hashed_statement, random_hash_from_reference, running_state, version, ' from ', replica_map[random_replica])
                if running_state_hash == random_hash_from_reference:
-                   print('This is a freaking success') #init new replicas all over again and pass new running state
                    self.processing_reconfig = False
                    self.config_number += 1
                    self.hashes_for_reference = []
                    wedge_responses = []
                    kill_replicas()
                    print('New version:', self.config_number)
+                   logging.info('New config version: {0}'.format(self.config_number))
                    t = self.config['t']
                    t = 2*t + 1
                    init_replicas(t, running_state)
                    logging.info("New replicas have been Spawned")
             elif timeout(1):
-                print('didnot receive running state message ')
+                print('did not receive running state message ')
+                logging.info('Olympus did not receive running state message. Resending get running state message ')
                 send_get_running_state_msg()
 
     def receive(msg=('wedge-response', wedge_statement, version), from_=some_replica):
         print('receiving wedge response from ', some_replica)
+        logging.info('received wedge response from {0}'.format(some_replica))
         if validate_wedge_response(wedge_statement) and version == self.config_number:
             wedge_responses.append(wedge_statement)
-
-    def receive(msg=('check_config', message), from_=client):
-        client_config_version, signature = message
+        else:
+            logging.info("Wedge response validation failed for replica: {0}".format(some_replica))
 
 
     def validate_caughtup_response(signed_running_hash):
@@ -466,10 +479,7 @@ class Olympus(process):
        hashed_statement = SHA256.new(
            json.dumps(statement). encode('utf-8')).digest()
        public_key = self.replica_public_keys[replica_id]
-       if public_key.verify(hashed_statement, signature):
-           return True
-       else:
-           return False  # The result_statement has been changed because of failure injecti
+       return public_key.verify(hashed_statement, signature)
 
 
     def receive(msg=('caughtup-response', signed_running_hash, version), from_=rep):
@@ -479,8 +489,10 @@ class Olympus(process):
 
     def kill_replicas():
         signed_message = sign_message()
+        logging.info("Olympus is now sending die-now messages")
         for replica in self.replica_list:
             send(('die-now', signed_message), to=replica)
+            logging.info("Olympus has sent die-now to {0}".format(replica))
 
     def init_logger():
         logging_directory = os.path.join(os.path.dirname(
