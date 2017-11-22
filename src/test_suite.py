@@ -57,20 +57,20 @@ def do_dict_operation(operation, test_dict):
         if key in test_dict:
             test_dict[key] = test_dict[key]+value
     elif op == 'slice':
-       if key in self.running_state:
-            early_value = self.running_state[key]
+       if key in test_dict:
+            early_value = test_dict[key]
             start, end = value.split(':')
             if start == '' and end != '': 
                 end = int(end)
-                self.running_state[key] = early_value[: end]
+                test_dict[key] = early_value[: end]
             elif start != '' and end == '': 
                 start = int(start)
-                self.running_state[key] = early_value[start:]
+                test_dict[key] = early_value[start:]
             else:
                 start = int(start)
                 end = int(end)
                 if end > start:
-                    self.running_state[key] = early_value[start:end] 
+                    test_dict[key] = early_value[start:end] 
 
 def parse_workload(workload):
     match = re.match(r'^[^\(]+', workload).group()
