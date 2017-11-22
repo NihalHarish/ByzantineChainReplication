@@ -110,6 +110,7 @@ class Replica(process):
         self.invalid_bytes = SHA256.new('invalid'.encode('utf-8')).digest()
         self.config_number = config_number
         self.last_client_operations = last_client_operations
+        self.truncate_last_n_entries = 0
 
     def _build_key_chain(keychain):
         for replica_id, public_key in keychain.items():
@@ -661,6 +662,9 @@ class Replica(process):
                             print(self, ' failure: perform {a:a}')
                             failure_trigger_dict[action] = False
                             _put({'key':'a', 'value':'a'})
+                        elif action == TRUNCATE_HISTORY:
+                            logger.info('will truncate last n entries from history')
+                            self.truncate_last_n_entries = int(action_args)
                 elif req_id == message_number + self.last_client_operations[client_id] and \
                         self.client_list.index(client_process) == \
                         from_which_client:
@@ -686,6 +690,9 @@ class Replica(process):
                         print(self, ' failure: perform {a:a}')
                         failure_trigger_dict[action] = False
                         _put({'key':'a', 'value':'a'})
+                    elif action == TRUNCATE_HISTORY:
+                        logger.info('will truncate last n entries from history')
+                        self.truncate_last_n_entries = int(action_args)
 
 
     def check_failure_phase_3(type_failure):
@@ -719,6 +726,9 @@ class Replica(process):
                         print(self, ' failure: perform {a:a}')
                         failure_trigger_dict[action] = False
                         _put({'key':'a', 'value':'a'})
+                    elif action == TRUNCATE_HISTORY:
+                        logger.info('will truncate last n entries from history')
+                        self.truncate_last_n_entries = int(action_args)
 
     def _go_to_sleep(sleep_time):
         failure_trigger_dict[SLEEP] = False
@@ -1232,7 +1242,13 @@ class Replica(process):
             self.failure_trigger_dict[TRUNCATE_HISTORY] = False
             print(self, 'sending truncated history as wedge response')
             logger.info('sending truncated history as wedge response')
-            wedge_statement = (self.checkpoint_cache, self.history[:-1])
+            logger.info('earlier history {0}'.format(self.history))
+            logger.info('truncated history {0}'.format(self.history[:-self.truncate_last_n_entries]))
+
+            print('earlier history', self.history)
+            print('truncated history', self.history[:-self.truncate_last_n_entries])
+
+            wedge_statement = (self.checkpoint_cache, self.history[:-self.truncate_last_n_entries])
         else:
             wedge_statement = (self.checkpoint_cache, self.history)
         return wedge_statement
