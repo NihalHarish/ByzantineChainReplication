@@ -611,12 +611,18 @@ class Replica(process):
             It iterates through the failure lists and checks if
             that client and request number matches to trigger the failure.
         '''
+        logger.info("Check Failure has been called")
         for failure_tuple in self.failures:
+            logger.info("Type Failure: {0}".format(type_failure))
+            logger.info("Failure Tuple: {0}".format(failure_tuple))
             if type_failure in failure_tuple:
                 print(failure_tuple)
+                logger.info("Point A")
                 _, from_which_client, \
-                    message_number, action, failure_config_number, extra_args = failure_tuple
+                    message_number, action, failure_config_number, extra_args, action_args = failure_tuple
                 print('Failure config number {0} and current config number {1}'.format(failure_config_number, self.config_number))
+                logger.info("Failure action: {0}".format(action))
+                logger.info("Failure action args: {0}".format(action_args))
                 if failure_config_number != self.config_number:
                     continue
                 # extract message number and client id from the payload
@@ -643,7 +649,8 @@ class Replica(process):
                         if action == CRASH:
                             _crash()
                         elif action == SLEEP:
-                            _go_to_sleep()
+                            logger.info("Sleep action has been found")
+                            _go_to_sleep(action_args)
                         elif action == INCREMENT_SLOT:
                             failure_trigger_dict[action] = False
                             if self.isHead:
@@ -667,7 +674,8 @@ class Replica(process):
                     if action == CRASH:
                         _crash()
                     elif action == SLEEP:
-                        _go_to_sleep()
+                        logger.info("Sleep action has been found")
+                        _go_to_sleep(action_args)
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
                         if self.isHead:
@@ -681,10 +689,13 @@ class Replica(process):
 
 
     def check_failure_phase_3(type_failure):
+        logger.info("Check Failure Phase 3 has been called")
         for failure_tuple in self.failures:
             print(failure_tuple, type_failure)
             if type_failure in failure_tuple:
-                _, _, message_number, action, failure_config_number, extra_args = failure_tuple
+                _, _, message_number, action, failure_config_number, extra_args, action_args = failure_tuple
+                logger.info("Failure action: {0}".format(action))
+                logger.info("Failure action args: {0}".format(action_args))
                 if failure_config_number != self.config_number:
                     continue
                 self.fuck_failure[type_failure] += 1
@@ -696,7 +707,8 @@ class Replica(process):
                     if action == CRASH:
                         _crash()
                     elif action == SLEEP:
-                        _go_to_sleep()
+                        logger.info("Sleep action has been found")
+                        _go_to_sleep(action_args)
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
                         if self.isHead:
@@ -708,11 +720,12 @@ class Replica(process):
                         failure_trigger_dict[action] = False
                         _put({'key':'a', 'value':'a'})
 
-    def _go_to_sleep():
+    def _go_to_sleep(sleep_time):
         failure_trigger_dict[SLEEP] = False
         logger.info('going to sleep')
         print(self, 'going to sleep')
-        time.sleep(3)
+        sleep_time /= 1000
+        time.sleep(sleep_time)
 
     def _crash():
         failure_trigger_dict[CRASH] = False

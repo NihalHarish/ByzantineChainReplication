@@ -57,6 +57,12 @@ class Olympus(process):
         message = self.crypt_key.sign(nonce, '')
         return (message, nonce)
 
+    def parse_failure_action(action):
+        action = action.split('(')
+        action = action[0]
+        action += '()'
+        return action
+
     def init_replicas(number, state={}):
         logging.info("Staring replica init for t = " + str(number))
         replicas = list(new(Replica, num=number))
@@ -80,6 +86,14 @@ class Olympus(process):
                                                     failure_trigger)
                 failure_single_param_regex = re.search(r'(\d+)',
                                                     failure_trigger)
+
+                failure_action_param_regex = re.search(r'(\d+)',
+                                                    failure_action)
+                failure_action_param = None 
+                if failure_action_param_regex:
+                    failure_action_param = failure_action_param_regex.group(1)
+                    failure_action = parse_failure_action(failure_action)
+
                 failure_from = None
                 failure_message_number = None
                 if failure_addresses_regex:
@@ -95,8 +109,11 @@ class Olympus(process):
                     failure_message_number,
                     failure_action,
                     failure_configuration,
-                    failure_param
+                    failure_param,
+                    failure_action_param
                     ]  # False, means dont execute now
+
+                print('Failure List Passed: ', failure_list)
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
                 else:
