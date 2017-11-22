@@ -688,10 +688,8 @@ class Replica(process):
                 if failure_config_number != self.config_number:
                     continue
                 self.fuck_failure[type_failure] += 1
-                print(self.fuck_failure[type_failure], extra_args)
-                print(extra_args == self.config_number - 1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])
-                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (extra_args == self.config_number-1 and type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
-                    print('oh yeahhhhhhhhhhhhhhhhhhhhhh')
+                print(self.fuck_failure[type_failure], extra_args, type_failure)
+                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
                     logger.info('Setting {0} failure'.format(type_failure))
                     print('Setting {0} failure'.format(type_failure))
                     failure_trigger_dict[action] = True
@@ -880,6 +878,7 @@ class Replica(process):
 
     def receive(msg=('die-now', signed_message), from_=next_replica):
         if validate_olympus(signed_message) == False:
+            print("Failed to validate olympus signature for die-now request")
             logger.error("Failed to validate olympus signature for die-now request")
             return
         self.replica_life = True
@@ -1190,7 +1189,7 @@ class Replica(process):
                 print(self, 'perfoming {0} {1} => {2}'.format(slot, opr, status))
         caughtup_statement = compute_running_state_hash()
         signed_caughtup_statement = generate_caughtup_signature(caughtup_statement)
-        send(('caughtup-response', signed_caughtup_statement), to=olympus)
+        send(('caughtup-response', signed_caughtup_statement, self.config_number), to=olympus)
 
     def receive(msg=('get-running-state'), from_=olympus):
         if self.failures is not None:
@@ -1200,7 +1199,7 @@ class Replica(process):
             logger.info('dropping get-running-state request')
             self.failure_trigger_dict[DROP] = False
             return
-        send(('running-state', self.running_state), to=olympus)
+        send(('running-state', self.running_state, self.config_number), to=olympus)
 
     def generate_signed_wedge_statement(wedge_statement):
         wedge_stm = json.dumps(wedge_statement).encode('utf-8')
