@@ -384,7 +384,6 @@ class Olympus(process):
         return catch_up
 
     def select_quorum():
-        print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
@@ -430,7 +429,6 @@ class Olympus(process):
             self.hashes_for_reference = []
             select_quorum()
         else:
-            print('WOHOOOOOOOOOOOOOOOOOO')
             random_replica = random.choice(self.hashes_for_reference)[1]
             # TODO: NIHAL > sign this as well
             send(('get-running-state'), to=replica_map[random_replica])
@@ -440,7 +438,6 @@ class Olympus(process):
                random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
                print(hashed_statement, random_hash_from_reference, running_state, version, ' from ', replica_map[random_replica])
                if running_state_hash == random_hash_from_reference:
-                   print('This is a freaking success') #init new replicas all over again and pass new running state
                    self.processing_reconfig = False
                    self.config_number += 1
                    self.hashes_for_reference = []
