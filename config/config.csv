@@ -4,13 +4,13 @@
 test_case_name = test1
 
 # number of failures to tolerate.  number of replicas is 2t+1.
-t = 3
+t = 4
 # number of clients
 num_client = 2
 # client timeout, in milliseconds.  if timer expires, resend request 
 # to all replicas, as described in section 3.3.
 
-client_timeout = 10
+client_timeout = 5
 # timeout, in milliseconds, for head and non-head servers, respectively:
 # if timer expires, send reconfiguration request to Olympus, as described 
 # in section 3.3.

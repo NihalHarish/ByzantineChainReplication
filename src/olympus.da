@@ -264,10 +264,10 @@ class Olympus(process):
             #send(('wedge-request'), to=repl)
             send(('wedge-request', signed_message), to=repl)
         if await(some(received(('wedge-response', wedge_statement, version)), has=(version == self.config_number))):
-            print('oh god it received ', version, self.config_number)
+            # print('oh god it received ', version, self.config_number)
             if await(len(setof(p, received(('wedge-response', wedge_statement, version), from_=p))) == 2*self.config['t'] + 1):
                  select_quorum()
-            elif timeout(2):  # timeout for wedge response from replicas
+            elif timeout(1):  # timeout for wedge response from replicas
                 print('timeout occured at olympus, during wedge-response')
                 select_quorum()
 
@@ -378,9 +378,9 @@ class Olympus(process):
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
             if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
                 if await(len(setof(p, received(('caughtup-response', signed_running_hash, version), from_=p))) == self.config['t'] + 1):
-                    print('received caught up response from t+1 replicas')
+                    print('received caught up response from t+1 replicas ', self.hashes_for_reference)
                     send_get_running_state_msg()
-                elif timeout(5):
+                elif timeout(1):
                     print('caughtup response timedout, asking for remaining hash from others')
                     send_get_running_state_msg()
         else:
@@ -401,12 +401,12 @@ class Olympus(process):
             random_replica = random.choice(self.hashes_for_reference)[1]
             # TODO: NIHAL > sign this as well
             send(('get-running-state'), to=replica_map[random_replica])
-            if await(some(received(('running-state', state, version)), has=(version==self.config_number))):
-               hashed_statement = SHA256.new(
-                       json.dumps(state). encode('utf-8')).hexdigest()
+            if await(some(received(('running-state', running_state, running_state_hash, version)), has=(version==self.config_number))):
+               running_state_json = json.dumps(running_state).encode('utf-8')
+               hashed_statement = SHA256.new(running_state_json).hexdigest()
                random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
-               print(hashed_statement, random_hash_from_reference, state, version)
-               if hashed_statement == random_hash_from_reference:
+               print(hashed_statement, random_hash_from_reference, running_state, version, ' from ', replica_map[random_replica])
+               if running_state_hash == random_hash_from_reference:
                    print('This is a freaking success') #init new replicas all over again and pass new running state
                    self.processing_reconfig = False
                    self.config_number += 1
@@ -416,9 +416,9 @@ class Olympus(process):
                    print('New version:', self.config_number)
                    t = self.config['t']
                    t = 2*t + 1
-                   init_replicas(t, state)
+                   init_replicas(t, running_state)
                    logging.info("New replicas have been Spawned")
-            elif timeout(5):
+            elif timeout(1):
                 print('didnot receive running state message ')
                 send_get_running_state_msg()
 
