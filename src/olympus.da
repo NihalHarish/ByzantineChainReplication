@@ -306,7 +306,7 @@ class Olympus(process):
             for history_statement in history:
                 slot, operation, order_proof, client_signature = history_statement
                 # TODO: NIHAL > order proof doesnt work
-                # if validate_order_statements(order_proof) == False:
+                # if validate_order_statement(order_proof) == False:
                 #     logging.info("Order Proof Validation Failed")
                 #     return False
                 if validate_client(client_signature):

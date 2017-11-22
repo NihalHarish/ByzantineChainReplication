@@ -23,10 +23,10 @@ def craft_operation_payload(operation):
          value = re.search(
              r'\(([^)]+)\)',
              operation).group()[
-             1:- 
+             1:-
              1].replace(
              "'",
-             "") 
+             "")
          key = None
      else:
          key, value = re.search(
@@ -57,20 +57,20 @@ def do_dict_operation(operation, test_dict):
         if key in test_dict:
             test_dict[key] = test_dict[key]+value
     elif op == 'slice':
-       if key in self.running_state:
-            early_value = self.running_state[key]
+       if key in test_dict:
+            early_value = test_dict[key]
             start, end = value.split(':')
-            if start == '' and end != '': 
+            if start == '' and end != '':
                 end = int(end)
-                self.running_state[key] = early_value[: end]
-            elif start != '' and end == '': 
+                test_dict[key] = early_value[: end]
+            elif start != '' and end == '':
                 start = int(start)
-                self.running_state[key] = early_value[start:]
+                test_dict[key] = early_value[start:]
             else:
                 start = int(start)
                 end = int(end)
                 if end > start:
-                    self.running_state[key] = early_value[start:end] 
+                    test_dict[key] = early_value[start:end]
 
 def parse_workload(workload):
     match = re.match(r'^[^\(]+', workload).group()
@@ -92,7 +92,7 @@ def dict_simulator(test_case):
             op = craft_operation_payload(operation)
             do_dict_operation(op, test_dict)
     return test_dict
-    
+
 
 if __name__ == '__main__':
 
@@ -111,7 +111,8 @@ if __name__ == '__main__':
     else:
         test_case = options.test_case
     simulated_dict = dict_simulator(test_case)
-    #print(simulated_dict)
+
+    print(simulated_dict)
 
     test_value = json.loads(config_handler.load_config()[test_case]['test_dict'])
     test_value = simulated_dict

@@ -81,16 +81,21 @@ class Client(process):
         await(some(received((CONFIG_RECEIVED, config, last_operation, signature)), has=(config['config_number'] > self.config_number)))
         logging.info("Got response with config number: {0}".format(config['config_number']))
         self.config_number = config['config_number'] #Update config number
-        print('Got the message')
+        print('Got new version of config ', self.config_number)
         if validate_olympus(signature):
-            print('Validation successfull')
+            print('Olympus Validation successfull')
             logging.info("Client has received the config: {0}".format(config))
             logging.info("Last Operation".format(last_operation))
             if last_operation:
-               #DO operation handling 
                print('Last Operation: ', last_operation)
                print('Before Self Request Number: ', self.request_number)
-               self.request_number = last_operation['request_id'] + 1
+               if last_operation['opr'] != 'get':
+                   print('Not get operation, hence we cannot replay this read request')
+                   self.request_number = last_operation['request_id'] + 1
+               else:
+                   print('This operation can be replayed')
+                   self.request_number = last_operation['request_id']
+
                print('After Self Request Number: ', self.request_number)
                logging.info("Last Operation Received")
             else:
