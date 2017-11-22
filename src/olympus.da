@@ -246,7 +246,7 @@ class Olympus(process):
         if validate_client(signed_message):
             last_operation = None
             if self.consistent_history is not None:
-                print("Self.Consistent History: ", self.consistent_history)
+                # print("Self.Consistent History: ", self.consistent_history)
                 for history_elements in self.consistent_history:
                     slot, oprns = history_elements
                     some_client_id = oprns['client_id']
@@ -280,7 +280,7 @@ class Olympus(process):
             if await(len(setof(p, received(('wedge-response', wedge_statement, version), from_=p))) == 2*self.config['t'] + 1):
                  select_quorum()
             elif timeout(1):  # timeout for wedge response from replicas
-                print('timeout occured at olympus, during wedge-response')
+                print('timeout occured at olympus, during wedge-response ', len(wedge_responses))
                 select_quorum()
 
     def validate_wedge_response(signed_wedge_statement):
@@ -291,11 +291,23 @@ class Olympus(process):
        return public_key.verify(hashed_statement, signature)
 
     def validate_order_statement(signed_order_statement):
-       signature, statement, replica_id = signed_order_statement
-       hashed_statement = SHA256.new(
-           json.dumps(statement).encode('utf-8')).digest()
-       public_key = self.replica_public_keys[replica_id]
-       return public_key.verify(hashed_statement, signature)
+        slot = None
+        operation = None
+        for s_order_statement in signed_order_statement:
+            signature, statement, replica_id = s_order_statement
+            _, statement_slot, statement_operation = statement
+            hashed_statement = SHA256.new(
+               json.dumps(statement).encode('utf-8')).digest()
+            public_key = self.replica_public_keys[replica_id]
+            if public_key.verify(hashed_statement, signature):
+                if slot is None:
+                    _, slot, operation = statement
+                else:
+                    if slot != statement_slot or operation != statement_operation:
+                        return False
+            else:
+                return False  # The result_statement has been changed because of failure injection
+        return True
 
     def check_all_history_consistent(quorum_list):
         '''
@@ -315,6 +327,9 @@ class Olympus(process):
                 #if validate_order_statement(order_proof) == False:
                 #    logging.info("Order Proof Validation Failed")
                 #    return False
+                if validate_order_statement(order_proof) == False:
+                    logging.info("Order Proof Validation Failed")
+                    return False
                 if validate_client(client_signature):
                     if slot not in temp_history:
                         temp_history[slot] = operation
@@ -388,14 +403,15 @@ class Olympus(process):
                 signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
             if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
-                if await(len(setof(p, received(('caughtup-response', signed_running_hash, version), from_=p))) == self.config['t'] + 1):
+                if await(len(self.hashes_for_reference) >= self.config['t'] + 1):
                     print('received caught up response from t+1 replicas ', self.hashes_for_reference)
                     logging.info('received caught up response from t+1 replicas {0}'.format(self.hashes_for_reference))
                     send_get_running_state_msg()
-                elif timeout(1):
-                    print('caughtup response timedout, asking for remaining hash from others')
-                    logging.info('caughtup response timedout, asking for remaining hash from others')
-                    send_get_running_state_msg()
+                elif timeout(3):
+                    print('caughtup response timedout, selecting quorum again ', len(self.hashes_for_reference))
+                    # send_get_running_state_msg()
+                    self.hashes_for_reference = []
+                    select_quorum()
         else:
             print('history is not consistent')
             logging.info('history is not consistent. selecting quorum again')
@@ -414,8 +430,10 @@ class Olympus(process):
             if some_hash != compare_hash:
                 inconsistent = True
         if inconsistent:
-            print('The running state hash is inconsistent', self.hashes_for_reference)
             logging.info('The running state hash is inconsistent {0}'.format(self.hashes_for_reference))
+            print('The running state hash is inconsistent', self.hashes_for_reference, ' trying once again')
+            self.hashes_for_reference = []
+            select_quorum()
         else:
             random_replica = random.choice(self.hashes_for_reference)[1]
             # TODO: NIHAL > sign this as well
@@ -448,7 +466,7 @@ class Olympus(process):
     def receive(msg=('wedge-response', wedge_statement, version), from_=some_replica):
         print('receiving wedge response from ', some_replica)
         logging.info('received wedge response from {0}'.format(some_replica))
-        if validate_wedge_response(wedge_statement):
+        if validate_wedge_response(wedge_statement) and version == self.config_number:
             wedge_responses.append(wedge_statement)
         else:
             logging.info("Wedge response validation failed for replica: {0}".format(some_replica))
