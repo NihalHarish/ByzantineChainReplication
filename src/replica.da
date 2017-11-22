@@ -100,7 +100,7 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 100
+        self.checkpoint_limit = 5
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t
@@ -650,7 +650,7 @@ class Replica(process):
                             _crash()
                         elif action == SLEEP:
                             logger.info("Sleep action has been found")
-                            _go_to_sleep(action_args)
+                            _go_to_sleep(int(action_args))
                         elif action == INCREMENT_SLOT:
                             failure_trigger_dict[action] = False
                             if self.isHead:
@@ -675,7 +675,7 @@ class Replica(process):
                         _crash()
                     elif action == SLEEP:
                         logger.info("Sleep action has been found")
-                        _go_to_sleep(action_args)
+                        _go_to_sleep(int(action_args))
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
                         if self.isHead:
@@ -708,7 +708,7 @@ class Replica(process):
                         _crash()
                     elif action == SLEEP:
                         logger.info("Sleep action has been found")
-                        _go_to_sleep(action_args)
+                        _go_to_sleep(int(action_args))
                     elif action == INCREMENT_SLOT:
                         failure_trigger_dict[action] = False
                         if self.isHead:
@@ -723,9 +723,11 @@ class Replica(process):
     def _go_to_sleep(sleep_time):
         failure_trigger_dict[SLEEP] = False
         logger.info('going to sleep')
-        print(self, 'going to sleep')
+        print('sleep time is of type ', type(sleep_time))
         sleep_time /= 1000
+        print(self, 'going to sleep for ', sleep_time, ' seconds')
         time.sleep(sleep_time)
+        print(self,' has woken up')
 
     def _crash():
         failure_trigger_dict[CRASH] = False
@@ -1030,14 +1032,15 @@ class Replica(process):
             logger.info('dropping checkpoint message')
             return
         if validate_checkpoint(signed_checkpoint_payload, complete=False):
-                checkpoint_statement = generate_checkpoint_statement()
-                signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
-                signed_checkpoint_payload.append(signed_checkpoint_msg)
-                if not isTail:
-                    send(('checkpoint', signed_checkpoint_payload), to=next_replica)
-                else:
-                    truncate_history(signed_checkpoint_payload)
-                    send(('checkpoint_proof', signed_checkpoint_payload), to=prev_replica)
+            print(self, 'receiving checkpoint from ',prev_replica)
+            checkpoint_statement = generate_checkpoint_statement()
+            signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
+            signed_checkpoint_payload.append(signed_checkpoint_msg)
+            if not isTail:
+                send(('checkpoint', signed_checkpoint_payload), to=next_replica)
+            else:
+                truncate_history(signed_checkpoint_payload)
+                send(('checkpoint_proof', signed_checkpoint_payload), to=prev_replica)
         else:
             print(self, 'Couldnot verify checkpoint message')
             send(('reconfigure-request'), to=olympus)
@@ -1051,6 +1054,7 @@ class Replica(process):
             self.failure_trigger_dict[DROP] = False
             return
         if validate_checkpoint(signed_checkpoint_list, complete=True):
+            print(self, 'receiving complete checkpoint from ',next_replica)
             truncate_history(signed_checkpoint_list)
             if not isHead:
                 if self.failure_trigger_dict[DROP_CHECKPOINT_STMTS]:
