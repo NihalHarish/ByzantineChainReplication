@@ -383,7 +383,6 @@ class Olympus(process):
     def select_quorum():
         print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
-        print(selected_quorum)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
                 list(map(lambda x: replica_map[x[-1]], wedge_responses)))
         if check_all_history_consistent(selected_quorum):
@@ -393,7 +392,6 @@ class Olympus(process):
             for history_elements in self.consistent_history:
                 slot, oprns = history_elements
                 last_client_operations[oprns['client_id']] = oprns['request_id']  # stores the last request of the client. This will be passed on to the replica
-            print('the longest history is ', longest_history)
             # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
                 _, wedge_statement, replica_id = replica_statement
@@ -405,12 +403,14 @@ class Olympus(process):
                 signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
             if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
-                if await(len(setof(p, received(('caughtup-response', signed_running_hash, version), from_=p))) == self.config['t'] + 1):
+                if await(len(self.hashes_for_reference) >= self.config['t'] + 1):
                     print('received caught up response from t+1 replicas ', self.hashes_for_reference)
                     send_get_running_state_msg()
-                elif timeout(1):
-                    print('caughtup response timedout, asking for remaining hash from others')
-                    send_get_running_state_msg()
+                elif timeout(3):
+                    print('caughtup response timedout, selecting quorum again ', len(self.hashes_for_reference))
+                    # send_get_running_state_msg()
+                    self.hashes_for_reference = []
+                    select_quorum()
         else:
             print('history is not consistent')
             select_quorum()

@@ -1109,7 +1109,7 @@ class Replica(process):
         if self.mode == REPLICA_IMMUTABLE:
             reply_to_client = self.clients[client_id]
             logger.info('sending error to client as it is immutable')
-            print('SENDINGGGGGGGG ERROR TO CLIENT AS IT IS IMMUTABLE')
+            # print('SENDINGGGGGGGG ERROR TO CLIENT AS IT IS IMMUTABLE')
             # send(('error', 'immutable'), to=reply_to_client)
 
         elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
