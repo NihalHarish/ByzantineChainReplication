@@ -110,6 +110,6 @@ def parse_config(config):
 
 if __name__ == '__main__':
     config = load_config()
-    print(config['test1']['workload'])
+    print(config['test1']['failures'])
     #print(config['test1']['failures'])
     #print(pseudorandom(17, 10))

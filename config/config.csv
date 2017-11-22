@@ -17,6 +17,8 @@ client_timeout = 5
 head_timeout = 2
 nonhead_timeout = 4
 
+checkpoint_limit = 5
+
 # MAPPING OF PROCESSES TO HOSTS
 # to simplify changing the hosts, we first specify a semicolon-separated
 # list of hosts, and then use 0-based indices into that list to specify the

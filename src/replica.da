@@ -39,7 +39,7 @@ class Replica(process):
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
-              t: int, config_number: int, last_client_operations: dict):
+              t: int, checkpoint_limit: int, config_number: int, last_client_operations: dict):
 
         self.unique_id = unique_id
         self.running_state = running_state
@@ -101,7 +101,7 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 5
+        self.checkpoint_limit = checkpoint_limit
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t

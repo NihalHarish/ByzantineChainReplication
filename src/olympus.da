@@ -70,6 +70,7 @@ class Olympus(process):
         keys = [generate_replica_key_pair(replica_id)
                 for replica_id in replica_ids]
         failure = self.config['failures']
+        checkpoint_limit = 5 if 'checkpoint_limit' not in self.config else int(self.config['checkpoint_limit'])
         print(failure)
         replica_fail = {}
         for i in failure:
@@ -170,6 +171,7 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
+                     checkpoint_limit,
                      self.config_number,
                      self.last_client_operations
                      ))
