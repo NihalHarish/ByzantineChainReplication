@@ -280,8 +280,8 @@ class Olympus(process):
            return True
        else:
            return False  # The result_statement has been changed because of failure injection
-    
-    def validate_order_statments(signed_order_statement):
+
+    def validate_order_statements(signed_order_statement):
        signature, statement, replica_id = signed_order_statement
        hashed_statement = SHA256.new(
            json.dumps(statement). encode('utf-8')).digest()
@@ -299,34 +299,22 @@ class Olympus(process):
         '''
         temp_history = {}
         client_validation = {}
-        # order_proof_length_map = {}
         for replica_statement in quorum_list:
-            # TODO: decrypt the wedge statement
             _, wedge_statement, _ = replica_statement
             checkpoint, history = wedge_statement
-            # if len(history) == 0:
-            #     continue
             for history_statement in history:
-                # TODO: decrypt the order proof 
                 slot, operation, order_proof, client_signature = history_statement
-                if validate_order_statement(order_proof) == False:
-                    logging.info("Order Proof Validation Failed")
-                    return
+                # if validate_order_statements(order_proof) == False:
+                #     logging.info("Order Proof Validation Failed")
+                #     return False
                 if validate_client(client_signature):
                     if slot not in temp_history:
                         temp_history[slot] = operation
-                        # order_proof_length_map[slot] = (len(order_proof), client_signature)
                     else:
-                        # order_proof_length_map[slot] = max(order_proof_length_map[slot],\
-                        #         len(order_proof))
                         if operation != temp_history[slot]:
                             return False
                 else:
                     return False
-        # checking if all order proofs have atleast size t + 1
-        # for (sizes_of_order_proof, client_signature) in order_proof_length_map.values():
-        #     if sizes_of_order_proof < self.config['t'] + 1 or validate_client(client_signature):
-        #         return False
         return True
 
     def filter_longest_history(selected_quorum):
@@ -365,10 +353,6 @@ class Olympus(process):
         return catch_up
 
     def select_quorum():
-        # if self.lock:
-        #     return
-        # else:
-        #     self.lock = True
         print('selecting the freaking quorum ')
         selected_quorum = random.sample(wedge_responses, self.config['t'] + 1)
         print('selected quorum ppl', list(map(lambda x: replica_map[x[-1]], selected_quorum)),\
@@ -391,18 +375,56 @@ class Olympus(process):
                 print('catchup payload ', catch_up_operations)
                 signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
+            if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
+                if await(len(setof(p, received(('caughtup-response', signed_running_hash, version), from_=p))) == self.config['t'] + 1):
+                    print('received caught up response from t+1 replicas')
+                    send_get_running_state_msg()
+                elif timeout(5):
+                    print('caughtup response timedout, asking for remaining hash from others')
+                    send_get_running_state_msg()
         else:
             print('history is not consistent')
-            # self.lock = False
             select_quorum()
+
+    def send_get_running_state_msg():
+        inconsistent = False
+        compare_hash = self.hashes_for_reference[0][0]
+        for payload in self.hashes_for_reference:
+            some_hash, replica_id = payload
+            if some_hash != compare_hash:
+                inconsistent = True
+        if inconsistent:
+            print('The running state hash is inconsistent', self.hashes_for_reference)
+        else:
+            print('WOHOOOOOOOOOOOOOOOOOO')
+            random_replica = random.choice(self.hashes_for_reference)[1]
+            # TODO: NIHAL > sign this as well
+            send(('get-running-state'), to=replica_map[random_replica])
+            if await(some(received(('running-state', state, version)), has=(version==self.config_number))):
+               hashed_statement = SHA256.new(
+                       json.dumps(state). encode('utf-8')).hexdigest()
+               random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
+               print(hashed_statement, random_hash_from_reference, state, version)
+               if hashed_statement == random_hash_from_reference:
+                   print('This is a freaking success') #init new replicas all over again and pass new running state
+                   self.processing_reconfig = False
+                   self.config_number += 1
+                   self.hashes_for_reference = []
+                   wedge_responses = []
+                   kill_replicas()
+                   print('New version:', self.config_number)
+                   t = self.config['t']
+                   t = 2*t + 1
+                   init_replicas(t, state)
+                   logging.info("New replicas have been Spawned")
+            elif timeout(5):
+                print('didnot receive running state message ')
+                send_get_running_state_msg()
 
     def receive(msg=('wedge-response', wedge_statement, version), from_=some_replica):
         print('receiving wedge response from ', some_replica)
         if validate_wedge_response(wedge_statement):
             wedge_responses.append(wedge_statement)
-            # if len(wedge_responses) == 2*self.config['t'] + 1:  # TODO: BLUNDER
-            #    print('Select Quorum will be called Now!!!!!')
-            #    select_quorum()
 
     def receive(msg=('check_config', message), from_=client):
         client_config_version, signature = message
@@ -419,45 +441,33 @@ class Olympus(process):
            return False  # The result_statement has been changed because of failure injecti
 
 
-    def receive(msg=('caughtup-response', signed_running_hash), from_=rep):
-        if validate_caughtup_response(signed_running_hash):
+    def receive(msg=('caughtup-response', signed_running_hash, version), from_=rep):
+        if version == self.config_number and validate_caughtup_response(signed_running_hash):
             _, statement, replica_id = signed_running_hash
-            if len(self.hashes_for_reference) == 0:
-                self.hashes_for_reference.append((statement, replica_id))
-            elif self.hashes_for_reference[0][0] != statement:
-                print('dude the hashes are not consistent ', self.hashes_for_reference, statement, rep)
-                self.hashes_for_reference = []
-                # self.lock = False
-                select_quorum()
-            else:
-                self.hashes_for_reference.append((statement, replica_id))
-            if len(self.hashes_for_reference) == self.config['t'] + 1:
-                print('received hash {0} from {1}'.format(self.hashes_for_reference, replica_id))
-                random_replica = random.choice(self.hashes_for_reference)[1]
-                send(('get-running-state'), to=replica_map[random_replica])
-
+            self.hashes_for_reference.append((statement, replica_id))
 
     def kill_replicas():
         signed_message = sign_message()
         for replica in self.replica_list:
             send(('die-now', signed_message), to=replica)
 
-    def receive(msg=('running-state', state), from_=olympus):
-        print('received running state ', state)
-        hashed_statement = SHA256.new(
-                json.dumps(state). encode('utf-8')).hexdigest()
-        random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
-        print(hashed_statement, random_hash_from_reference)
-        if hashed_statement == random_hash_from_reference:
-            print('This is a freaking success') #init new replicas all over again and pass new running state
-            self.processing_reconfig = False
-            self.config_number += 1
-            wedge_responses = []
-            kill_replicas()
-            t = self.config['t']
-            t = 2*t + 1
-            init_replicas(t, state)
-            logging.info("New replicas have been Spawned")
+    # def receive(msg=('running-state', state, version), from_=olympus):
+    #     if version == self.config_number:
+    #         print('received running state ', state, ' version :', version)
+    #     #     hashed_statement = SHA256.new(
+    #     #             json.dumps(state). encode('utf-8')).hexdigest()
+    #     #     random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
+    #     #     print(hashed_statement, random_hash_from_reference)
+    #     #     if hashed_statement == random_hash_from_reference:
+    #     #         print('This is a freaking success') #init new replicas all over again and pass new running state
+    #     #         self.processing_reconfig = False
+    #     #         self.config_number += 1
+    #     #         wedge_responses = []
+    #     #         kill_replicas()
+    #     #         t = self.config['t']
+    #     #         t = 2*t + 1
+    #     #         init_replicas(t, state)
+    #     #     logging.info("New replicas have been Spawned")
 
 
     def init_logger():
