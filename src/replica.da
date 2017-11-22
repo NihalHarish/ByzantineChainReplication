@@ -38,7 +38,7 @@ class Replica(process):
               failures: instance,
               running_state: dict,
               head_replica_id: str, test_case: str, olympus: instance,
-              t: int, config_number: int, last_client_operations: dict):
+              t: int, checkpoint_limit: int,  config_number: int, last_client_operations: dict):
 
         self.unique_id = unique_id
         self.running_state = running_state
@@ -100,10 +100,10 @@ class Replica(process):
         self.failure_forward_request_number = {}
 
         self.test_case = test_case
-        self.checkpoint_limit = 5
         self.checkpoint_count = 1
         self.olympus = olympus
         self.t = t
+        self.checkpoint_limit = checkpoint_limit
         self.checkpoint_cache = None
 
         self.replica_life = False
@@ -587,6 +587,7 @@ class Replica(process):
             operation['payload']['value'] = client_payload['payload']['value']
             client_info = (operation['client_id'], operation['request_id'], client_signature)
             checkpoint_count += 1
+            logger.info("Checkpoint limit has been set {0}".format(checkpoint_limit))
             if checkpoint_count % checkpoint_limit == 0:
                 print('the checkpoint count is ', checkpoint_count, checkpoint_limit)
                 checkpoint_statement = generate_checkpoint_statement()

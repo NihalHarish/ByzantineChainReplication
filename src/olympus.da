@@ -120,6 +120,7 @@ class Olympus(process):
                     replica_fail[replica_index].append(failure_list)
 
         print(replica_fail)
+        checkpoint_limit = int(self.config['checkpoint_limit']) if 'checkpoint_limit' in self.config else 5
         # logging.info("Reached point 1")
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
@@ -170,6 +171,7 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
+                     checkpoint_limit,
                      self.config_number,
                      self.last_client_operations
                      ))
@@ -195,6 +197,7 @@ class Olympus(process):
                      test_case,
                      self,
                      self.config['t'],
+                     checkpoint_limit,
                      self.config_number,
                      self.last_client_operations
                      ))

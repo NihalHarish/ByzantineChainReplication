@@ -17,7 +17,7 @@ client_timeout = 5
 head_timeout = 2
 nonhead_timeout = 4
 
-checkpoint_limit = 5
+checkpoint_limit = 6
 
 # MAPPING OF PROCESSES TO HOSTS
 # to simplify changing the hosts, we first specify a semicolon-separated
@@ -42,8 +42,8 @@ workload[2] = put('dude','michael'); append('dude',' scott'); put('love', 'pam')
 # failure scenario are failure-free.
 # 0th config and 0th replica, the second client sends a message with request number 1, and head decides to crash
 
-failures[0,2] = completed_checkpoint(2), sleep(10000)
-failures[0,3] = wedge_request(0), truncate_history(2)
+# failures[0,2] = completed_checkpoint(2), sleep(10000)
+# failures[0,3] = wedge_request(0), truncate_history(2)
 
 #TEST VALUES
 test_dict = {} 
