@@ -1110,7 +1110,7 @@ class Replica(process):
             reply_to_client = self.clients[client_id]
             logger.info('sending error to client as it is immutable')
             print('SENDINGGGGGGGG ERROR TO CLIENT AS IT IS IMMUTABLE')
-            send(('error', 'immutable'), to=reply_to_client)
+            # send(('error', 'immutable'), to=reply_to_client)
 
         elif checksum in self.result_shuttle_cache:  # checksum uniquely combines client id and request number
             print(self, 'sending result to client from its\
@@ -1203,6 +1203,8 @@ class Replica(process):
                 self.current_slot = slot
                 status = perform_operation(opr)
                 print(self, 'perfoming {0} {1} => {2}'.format(slot, opr, status))
+            else:
+                print(self, 'is not able to catchup coz its slot is', self.current_slot,' and slot received is ', slot)
         caughtup_statement = compute_running_state_hash()
         print(self, ' has finished catching up and new state is ',self.running_state, ' and hash is ', caughtup_statement)
         signed_caughtup_statement = generate_caughtup_signature(caughtup_statement)
