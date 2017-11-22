@@ -42,7 +42,8 @@ workload[2] = put('dude','michael'); append('dude',' scott'); put('love', 'pam')
 
 failures[0,2] = completed_checkpoint(2), sleep(10000)
 failures[0,3] = wedge_request(0), drop()
-failures[1,3] = new_configuration(0), extra_op()
+failures[0,1] = get_running_state(0), drop()
+failures[1,0] = new_configuration(0), increment_slot()
 
 #TEST VALUES
 test_dict = {} 
