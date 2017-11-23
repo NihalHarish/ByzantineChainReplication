@@ -72,7 +72,7 @@ class Replica(process):
         self.olympus_public_key = olympus_public_key
         self.clients = clients  # dict: key: client uuid, value: client object
         self.client_keys = client_keys
-        self.timeout_val = timeout_val
+        self.timeout_val = timeout_val / 1000
         self.failures = failures
         self.failure_trigger_dict = {
             CHANGE_RESULT: False,
