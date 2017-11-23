@@ -150,3 +150,10 @@ LANGUAGE FEATURE USAGE:
     3. Set Comprehensions : 0
     4. aggregations : 1
     5. quantifications : 8
+
+
+PERFORMANCE REPORT:
+
+    1. raft2.da : OUTPUT: elapsed time (seconds):  6.50653600692749
+    2. perform900.txt in a single-host configuration: 17.96326896303912
+    23.perform900.txt on a multi-host configuration:  20.74592648572649
