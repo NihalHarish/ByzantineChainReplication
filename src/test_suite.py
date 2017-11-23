@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     print(simulated_dict)
 
-    test_value = json.loads(config_handler.load_config()[test_case]['test_dict'])
+    # test_value = json.loads(config_handler.load_config()[test_case]['test_dict'])
     test_value = simulated_dict
     client_data = None
     with open('test.json') as test_file:

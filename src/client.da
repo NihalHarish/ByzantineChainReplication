@@ -248,7 +248,7 @@ class Client(process):
         print('Start Over')
         self.config = {}
         self.config = request_config_from_olympus()
-        self.request_timeout = float(self.config['client_timeout'])
+        self.request_timeout = float(self.config['client_timeout'])/1000
         self.head = self.config['head_node']
         print("Self.Head is now: ", self.head)
         self.tail = self.config['tail_node']
