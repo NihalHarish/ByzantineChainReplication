@@ -189,10 +189,10 @@ class Client(process):
             if validate_result_proof(finale_result):
                 self.request_number += 1
                 print('Successful Retransmission')
-                logger.info('Successful Retransmission')
+                logging.info('Successful Retransmission')
             else:
                 print('Invalid Result Proof: Informing Olympus: Exit')
-                logger.info('Invalid Result Proof: Informing Olympus: Exit')
+                logging.info('Invalid Result Proof: Informing Olympus: Exit')
                 start_over()
                 sys.exit(0)
 
@@ -221,7 +221,7 @@ class Client(process):
             payload = craft_operation_payload(oprn)
             signature = sign_message()
             print('sending client request to ',head, oprn)
-            logger.info('sending client request to {0}: {1}'.format(head, oprn))
+            logging.info('sending client request to {0}: {1}'.format(head, oprn))
             send(('client-request', payload, signature), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload),
