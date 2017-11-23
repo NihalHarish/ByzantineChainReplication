@@ -88,8 +88,11 @@ Tests:
     =================================================================================================================================
     Test_2: Test case 2 scenario: 
 	
-        1. 1 Failures are present:
+        1. 2 Failures are present:
         	1.1 4th replica drops the heads result statement when it receives the 2nd shuttle message from first client
+        	1.2 The head on receiving the 2nd request from first client, it sleeps for 10seconds
+
+
         	
         2. t=2 => 2(t) + 1 => 5 replicas
         3. 4 clients
@@ -131,7 +134,7 @@ Tests:
 	
 	
 	failures[0,3] = shuttle(0,2), drop_result_stmt()
-
+	failures[0,0] = client_request(0,2), sleep(10000)
     -----------------------------------------------------------------------------
     =================================================================================================================================
 
