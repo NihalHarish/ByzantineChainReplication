@@ -89,7 +89,7 @@ class Replica(process):
             DROP_CHECKPOINT_STMTS: False,
 
         }
-        self.fuck_failure = {
+        self.phase3_failure = {
                 WEDGE_REQUEST_FAILURE_TRIGGER: 0,
                 NEW_CONFIGURATION_FAILURE_TRIGGER: 0,
                 CHECKPOINT_FAILURE_TRIGGER: 0,
@@ -706,9 +706,9 @@ class Replica(process):
                 logger.info("Failure action args: {0}".format(action_args))
                 if failure_config_number != self.config_number:
                     continue
-                self.fuck_failure[type_failure] += 1
-                print(self.fuck_failure[type_failure], extra_args, type_failure)
-                if (self.fuck_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
+                self.phase3_failure[type_failure] += 1
+                print(self.phase3_failure[type_failure], extra_args, type_failure)
+                if (self.phase3_failure[type_failure] == extra_args and (type_failure in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER])) or (type_failure not in [CHECKPOINT_FAILURE_TRIGGER, COMPLETE_CHECKPOINT_FAILURE_TRIGGER]):
                     logger.info('Setting {0} failure'.format(type_failure))
                     print('Setting {0} failure'.format(type_failure))
                     failure_trigger_dict[action] = True

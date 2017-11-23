@@ -113,15 +113,12 @@ class Olympus(process):
                     failure_action_param
                     ]  # False, means dont execute now
 
-                print('Failure List Passed: ', failure_list)
                 if replica_index not in replica_fail:
                     replica_fail[replica_index] = [failure_list]
                 else:
                     replica_fail[replica_index].append(failure_list)
 
-        print(replica_fail)
         checkpoint_limit = int(self.config['checkpoint_limit']) if 'checkpoint_limit' in self.config else 5
-        # logging.info("Reached point 1")
         head_replica_id = replica_ids[0]
         for i, replica in enumerate(replicas):
             logging.info("Run: {0}".format(i))
@@ -134,20 +131,14 @@ class Olympus(process):
             next_r = None if isTail else replicas[i + 1]
 
             key, keychain = keys[i]
-            # logging.info("Before point 1.1")
             if isHead:
-                # logging.info('Has entered is Head')
                 self.head_node = replica
-                # logging.info('Has entered is Head 2')
                 logging.info("Config: {0}".format(self.config))
                 logging.info("Head Timeout: {0}".format(int(self.config['head_timeout'])))
                 timeout_val = int(self.config['head_timeout'])
-                # logging.info('Has entered is Head 3')
             if isTail:
-                # logging.info('Has entered is Tail')
                 self.tail_node = replica
                 timeout_val = int(self.config['nonhead_timeout'])
-            # logging.info("Reached point 1.1")
 
             if i in replica_fail:
                 setup(
@@ -202,7 +193,6 @@ class Olympus(process):
                      self.last_client_operations
                      ))
 
-        logging.info("Reached point 2")
         start(replicas)
         logging.info("Replica init for t = " + str(number) + " is complete")
         self.replica_list = replicas
@@ -217,7 +207,6 @@ class Olympus(process):
             seed = int(seed)
             size = int(size)
             workload = config_handler.pseudorandom(seed, size)
-            print('Workload: ', workload)
         return workload
 
     def craft_client_config(client):
@@ -253,7 +242,6 @@ class Olympus(process):
         if validate_client(signed_message):
             last_operation = None
             if self.consistent_history is not None:
-                # print("Self.Consistent History: ", self.consistent_history)
                 for history_elements in self.consistent_history:
                     slot, oprns = history_elements
                     some_client_id = oprns['client_id']
@@ -263,7 +251,6 @@ class Olympus(process):
             #     self.config_number += 1
             config_client = craft_client_config(client)
             config_client['config_number'] = self.config_number
-            print('Workload: ', config_client['workload'])
             print('Will be sending config to {0}'.format(str(client)))
             signature = sign_message()
             logging.info("Received Client Request with config number: {0}".format(client_config_number))
@@ -281,14 +268,13 @@ class Olympus(process):
         print ('got reconfigure request from ', anyone)
         signed_message = sign_message()
         for repl in replica_list:
-            #send(('wedge-request'), to=repl)
             send(('wedge-request', signed_message), to=repl)
         if await(some(received(('wedge-response', wedge_statement, version)), has=(version == self.config_number))):
-            # print('oh god it received ', version, self.config_number)
             if await(len(setof(p, received(('wedge-response', wedge_statement, version), from_=p))) == 2*self.config['t'] + 1):
                  select_quorum()
             elif timeout(1):  # timeout for wedge response from replicas
                 print('timeout occured at olympus, during wedge-response ', len(wedge_responses))
+                logging.info('timeout occured at olympus, during wedge-response selecting quorum again. wedge response: '.format(len(wedge_responses)))
                 select_quorum()
 
     def validate_wedge_response(signed_wedge_statement):
@@ -345,6 +331,7 @@ class Olympus(process):
                         if operation != temp_history[slot]:
                             return False
                 else:
+                    logging.info("Client Signature Validation Failed")
                     return False
         return True
 
@@ -369,11 +356,9 @@ class Olympus(process):
 
     def history_difference(big_history, replica_history, replica_checkpoint):
         catch_up = []
-        # print('checkpoint ', replica_checkpoint)
         checkpoint_data = None
         if replica_checkpoint is not None:
             checkpoint_data = list(map(lambda x: x[1][1], replica_checkpoint))
-            # print('checkpoint ', checkpoint_data)
         for hist in big_history:
             slot, operation = hist
             if (slot, operation) not in replica_history:
@@ -394,27 +379,30 @@ class Olympus(process):
             for history_elements in self.consistent_history:
                 slot, oprns = history_elements
                 last_client_operations[oprns['client_id']] = oprns['request_id']  # stores the last request of the client. This will be passed on to the replica
-            # print('the longest history is ', longest_history)
             for replica_statement in selected_quorum:
                 _, wedge_statement, replica_id = replica_statement
                 checkpoint, history = wedge_statement
                 replica_history = map(lambda x: (x[0], x[1]), history)  # extract only slot and operation
                 catch_up_operations = history_difference(longest_history, replica_history, checkpoint)
                 print('sending catchup to ', replica_map[replica_id])
+                logging.info('sending catchup message to {0}'.format(replica_map[replica_id]))
+                logging.info('catchup payload {0}'.format(catch_up_operations))
                 print('catchup payload ', catch_up_operations)
                 signed_message = sign_message()
                 send(('catchup-request', catch_up_operations, signed_message), to= replica_map[replica_id])
             if await(some(received(('caughtup-response', signed_running_hash, version)), has=(version == self.config_number))):
                 if await(len(self.hashes_for_reference) >= self.config['t'] + 1):
                     print('received caught up response from t+1 replicas ', self.hashes_for_reference)
+                    logging.info('received caught up response from t+1 replicas {0}'.format(self.hashes_for_reference))
                     send_get_running_state_msg()
                 elif timeout(3):
                     print('caughtup response timedout, selecting quorum again ', len(self.hashes_for_reference))
-                    # send_get_running_state_msg()
+                    logging.info('caughtup response timedout, selecting quorum again {0}'.format(len(self.hashes_for_reference)))
                     self.hashes_for_reference = []
                     select_quorum()
         else:
             print('history is not consistent')
+            logging.info('history is not consistent. Selecting quorum again')
             select_quorum()
 
     def send_get_running_state_msg():
@@ -426,6 +414,7 @@ class Olympus(process):
                 inconsistent = True
         if inconsistent:
             print('The running state hash is inconsistent', self.hashes_for_reference, ' trying once again')
+            logging.info('The running state hash is inconsistent {0} selcting quorum once again'.format(self.hashes_for_reference))
             self.hashes_for_reference = []
             select_quorum()
         else:
@@ -449,16 +438,17 @@ class Olympus(process):
                    init_replicas(t, running_state)
                    logging.info("New replicas have been Spawned")
             elif timeout(1):
-                print('didnot receive running state message ')
+                print('timeout did not receive running state message ')
+                logging.info('timeout did not receive running state message ')
                 send_get_running_state_msg()
 
     def receive(msg=('wedge-response', wedge_statement, version), from_=some_replica):
         print('receiving wedge response from ', some_replica)
+        logging.info('received wedge response from {0}'.format(some_replica))
         if validate_wedge_response(wedge_statement) and version == self.config_number:
             wedge_responses.append(wedge_statement)
-
-    def receive(msg=('check_config', message), from_=client):
-        client_config_version, signature = message
+        else:
+            logging.info("wedge response validation failed for replica: {0}".format(some_replica)) 
 
 
     def validate_caughtup_response(signed_running_hash):
@@ -480,6 +470,7 @@ class Olympus(process):
     def kill_replicas():
         signed_message = sign_message()
         for replica in self.replica_list:
+            logging.info("Sending die now to {0}".format(replica))
             send(('die-now', signed_message), to=replica)
 
     def init_logger():
