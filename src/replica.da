@@ -484,7 +484,6 @@ class Replica(process):
         logger.info(
             '{0} sending shuttle message to {1}'.format(
                 self, next_replica))
-        logger.info("I think it will crash now")
         send((SHUTTLE, shuttle_message), to=next_replica)
         await(False)
 
@@ -640,8 +639,6 @@ class Replica(process):
                     except KeyError:
                         req_id = payload['request_number']
                 client_process = self.clients[client_id]
-                print('Printing failure information {0} {1} {2}'.format(req_id, message_number, self.last_client_operations[client_id]))
-                print(req_id == message_number + self.last_client_operations[client_id], self.client_list.index(client_process), from_which_client, client_list)
                 if type_failure == 'forwarded_request':
                     if self.failure_forward_request_number[client_id] == \
                             message_number + self.last_client_operations[client_id] and \
@@ -1070,7 +1067,7 @@ class Replica(process):
                 if self.failure_trigger_dict[DROP_CHECKPOINT_STMTS]:
                     self.failure_trigger_dict[DROP_CHECKPOINT_STMTS] = False
                     print(self, ' is chopping off the first t+1 replicas checkpoints ', signed_checkpoint_list[self.t+1:])
-                    # logger.info('chopping off first t+1 replicas from checkpoint {0}'.format(signed_checkpoint_list[self.t+1:]))
+                    logger.info('chopping off first t+1 replicas from checkpoint {0}'.format(signed_checkpoint_list[self.t+1:]))
                     send(('checkpoint_proof', signed_checkpoint_list[self.t+1:]), to=prev_replica)
                 else:
                     send(('checkpoint_proof', signed_checkpoint_list), to=prev_replica)
@@ -1094,7 +1091,7 @@ class Replica(process):
             Head replica runs in the same function. It checks if the operation
             is new and also runs a timeout.
         '''
-        print('Received retransmission request')
+        print(self, 'Received retransmission request from ', c)
         logger.info('Received retransmission req')
         if not validate_client_signature(client_signature):
             return
@@ -1151,9 +1148,9 @@ class Replica(process):
             del self.retransmission[checksum]
         else:
             if not isHead:
-                print('forwarding request to the head')
+                print('forwarding request to the head', head_replica)
                 logger.info('forwarding request to the head')
-                send(('retransmission', retrans_payload), to=head_replica)
+                send(('retransmission', retrans_payload, client_signature), to=head_replica)
                 if await(some(received(('result_shuttle', big_one)), has=(big_one[CHECKSUM] not in self.result_shuttle_cache) )):
                     print('Retransmission request being processed @nonhead')
                     print('this is the payload ', big_one)
