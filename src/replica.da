@@ -593,6 +593,7 @@ class Replica(process):
                 checkpoint_statement = generate_checkpoint_statement()
                 signed_checkpoint_msg = generate_signed_checkpoint_message(checkpoint_statement)
                 print('{0} sending checkpoint to {1} {2}'.format(self, next_replica, [signed_checkpoint_msg]))
+                logger.info('{0} sending checkpoint to {1} {2}'.format(self, next_replica, [signed_checkpoint_msg]))
                 send(('checkpoint', [signed_checkpoint_msg]), to=next_replica)
                 checkpoint_count = 1
             handle_operation(operation, client_info)
@@ -619,7 +620,6 @@ class Replica(process):
             logger.info("Failure Tuple: {0}".format(failure_tuple))
             if type_failure in failure_tuple:
                 print(failure_tuple)
-                logger.info("Point A")
                 _, from_which_client, \
                     message_number, action, failure_config_number, extra_args, action_args = failure_tuple
                 print('Failure config number {0} and current config number {1}'.format(failure_config_number, self.config_number))
@@ -766,13 +766,11 @@ class Replica(process):
         shuttle_msg = payload
 
         if self.current_slot + 1 == shuttle_msg[SHUTTLE_SLOT] and self.mode != REPLICA_IMMUTABLE:  # new slot
-            logger.info('Point 0.2')
             if self.failures is not None:
                 check_failure('shuttle', payload)
             if self.failure_trigger_dict[DROP]:
                 self.failure_trigger_dict[DROP] = False
                 logger.info('Dropping shuttle msg')
-                print(self, ' is dropping shuttle msg')
                 return
             order_proof_shuttle = shuttle_msg[SHUTTLE_ORDER_PROOF]
             order_proof_is_valid = check_order_proof_validity(order_proof_shuttle)

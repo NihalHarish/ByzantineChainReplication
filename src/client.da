@@ -102,7 +102,8 @@ class Client(process):
                 print('No last operation')
             return config
         else:
-            print('Validation failed')
+            print('Olympus Validation failed for config initialization')
+            logging.info('Olympus Validation failed for config with signature: {0}'.format(signature))
             sys.exit(0)
 
     def sign_message():
@@ -186,11 +187,12 @@ class Client(process):
 
         if await(some(received(('retrans-result', finale_result)))):
             if validate_result_proof(finale_result):
-                print('what the hell')
                 self.request_number += 1
                 print('Successful Retransmission')
+                logger.info('Successful Retransmission')
             else:
                 print('Invalid Result Proof: Informing Olympus: Exit')
+                logger.info('Invalid Result Proof: Informing Olympus: Exit')
                 start_over()
                 sys.exit(0)
 
@@ -219,6 +221,7 @@ class Client(process):
             payload = craft_operation_payload(oprn)
             signature = sign_message()
             print('sending client request to ',head, oprn)
+            logger.info('sending client request to {0}: {1}'.format(head, oprn))
             send(('client-request', payload, signature), to=head)
             req_id = self.request_number
             if await(some(received(('result', finale_payload),
@@ -227,7 +230,7 @@ class Client(process):
                 pass
             elif timeout(self.request_timeout):
                 print('Make Operation TIMEOUT HAS EXPIRED')
-                logging.info(str(client_id) + ': TIMEOUT HAS EXPIRED')
+                logging.info(str(client_id) + ': Make Operation Request TIMEOUT HAS EXPIRED')
                 retransmission_request(payload)
 
     def receive(msg=('result', result), from_=tail):
