@@ -6,6 +6,7 @@ from Crypto import Random
 import time
 import logging
 import os
+import random
 from constants import RESULT_SHUTTLE_FAILURE_TRIGGER, \
     CLIENT_REQUEST_FAILURE_TRIGGER, \
     SHUTTLE_FAILURE_TRIGGER, FORWARDED_FAILURE_TRIGGER, \
@@ -1216,7 +1217,15 @@ class Replica(process):
         signed_caughtup_statement = generate_caughtup_signature(caughtup_statement)
         send(('caughtup-response', signed_caughtup_statement, self.config_number), to=olympus)
 
-    def receive(msg=('get-running-state'), from_=olympus):
+    def sign_message():
+        nonce = random.randint(1, 1000)
+        message = self.passport.sign(nonce, '') 
+        return (message, nonce)
+
+    def receive(msg=('get-running-state', olympus_signed_message), from_=olympus):
+        if validate_olympus(olympus_signed_message) == False:   
+            logger.info("Olympus Validation Failed for Get Running State")
+            return
         if self.failures is not None:
             check_failure_phase_3(GET_RUNNING_STATE_FAILURE_TRIGGER)
         if self.failure_trigger_dict[DROP]:
@@ -1225,7 +1234,7 @@ class Replica(process):
             self.failure_trigger_dict[DROP] = False
             return
         print(self, ' has finished catching up and new state is ',self.running_state, ' and hash is ', compute_running_state_hash())
-        send(('running-state', self.running_state, compute_running_state_hash(), self.config_number), to=olympus)
+        send(('running-state', self.running_state, compute_running_state_hash(), self.config_number, sign_message()), to=olympus)
 
     def generate_signed_wedge_statement(wedge_statement):
         wedge_stm = json.dumps(wedge_statement).encode('utf-8')
@@ -1252,7 +1261,7 @@ class Replica(process):
     def receive(msg=('wedge-request', signed_message), from_=olympus):
         # validate if it came from the olympus: TODO
         if validate_olympus(signed_message) == False:
-            logger.info("Olympus Validation Failed")
+            logger.info("Olympus Validation Failed For Wedge Request")
             return
         if self.failures is not None:
             check_failure_phase_3(WEDGE_REQUEST_FAILURE_TRIGGER)

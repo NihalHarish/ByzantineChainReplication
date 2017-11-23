@@ -406,6 +406,12 @@ class Olympus(process):
             logging.info('history is not consistent. Selecting quorum again')
             select_quorum()
 
+    def validate_replica(replica_id, replica_signed_message):
+        replica_public_key = self.replica_public_keys[replica_id]
+        signature, nonce = replica_signed_message
+        return replica_public_key.verify(nonce, signature)
+
+
     def send_get_running_state_msg():
         inconsistent = False
         compare_hash = self.hashes_for_reference[0][0]
@@ -421,8 +427,13 @@ class Olympus(process):
         else:
             random_replica = random.choice(self.hashes_for_reference)[1]
             # TODO: NIHAL > sign this as well
-            send(('get-running-state'), to=replica_map[random_replica])
-            if await(some(received(('running-state', running_state, running_state_hash, version)), has=(version==self.config_number))):
+            send(('get-running-state', sign_message()), to=replica_map[random_replica])
+            if await(some(received(('running-state', running_state, running_state_hash, version, replica_signed_message)),\
+                has=(version==self.config_number))):
+            
+               if validate_replica(random_replica, replica_signed_message) == False:
+                    print("Replica Validation Failed for Running State Message")
+                    return
                running_state_json = json.dumps(running_state).encode('utf-8')
                hashed_statement = SHA256.new(running_state_json).hexdigest()
                random_hash_from_reference = random.choice(self.hashes_for_reference)[0]
