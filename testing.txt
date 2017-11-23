@@ -42,11 +42,12 @@ Tests:
     =================================================================================================================================
     Test_1: Test case 1 scenario: 
 	
-	1. Failure: 4th replica changes the result(change_result()) when it receives a result_shuttle message for client 2 request number 1.
-			This means that 4th replica will alter its entry of the result_statement in the result shuttle and pass it to the previous replicas.
-	2. t=2 => 2*t+1 => 5 replicas
-	3. 3 clients
-	4. 3 workloads provided (not pseudorandom)
+	1. Failure: 	failures[0,3] = checkpoint(2), crash()
+			In this case, the 4th replica of 0th config will crash when it receives the 2nd checkpoint
+			
+	2. t=3 => 2*t+1 => 7 replicas
+	3. 2 clients
+	4. 2 workloads provided (not pseudorandom)
 	5. Test case output is provided at the field test_dict
 	
 	
@@ -69,16 +70,16 @@ Tests:
     Example: 
     -----------------------------------------------------------------------------
 	test_case_name = test1
-	t = 2
-	num_client = 3
+	t = 3
+	num_client = 2
 	client_timeout = 3000
-	head_timeout = 3000
-	nonhead_timeout = 3000
-	workload[0] = append('start', 'collection'); append('start', 'frosts'); get('start'); put('handle', 'smile'); append('handle', 'cement'); slice('handle', '3:1'); slice('start', '9:5'); put('discipline', 'interrelation'); get('handle'); slice('discipline', '2:0')
-	workload[1] = put('movie','star'); append('movie',' wars'); get('movie')
-	workload[2] = get('start'); get('start'); slice('start', '8:6'); get('start'); append('start', 'meetings'); put('ports', 'gross'); put('jewel', 'accidents'); slice('start', '6:9'); get('jewel'); slice('start', '0:9')
-	failures[0,3] = result_shuttle(2,1),change_result()
-	test_dict = {"ports": " gross", "jewel": " accidents", "discipline": " interrelation", "movie": "star wars", "handle": " smile cement"} 
+	head_timeout = 2000
+	nonhead_timeout = 1000
+	workload[0] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot')
+	workload[1] = put('dude','michael'); append('dude',' scott'); put('love', 'pam'); get('dude'); append('love', ' & Jim'); put('Dwight', 'Shrute'); append('Dwight', ' Angela')
+	
+	failures[0,3] = checkpoint(2), crash()
+
 
     -----------------------------------------------------------------------------
     =================================================================================================================================
@@ -86,14 +87,13 @@ Tests:
 
     =================================================================================================================================
     Test_2: Test case 2 scenario: 
-	(Replica are numbered from 0)
-        1. 2 Failures are present:
-        	1.1 4th replica drops_result_statement of the head from the result_proof of result_shuttle when it receives a shuttle for 0th Client and 2nd request.
-        	1.2 2nd replica will change_result() when it receives a result_shuttle for 0th Client and request 1.
+	
+        1. 1 Failures are present:
+        	1.1 4th replica drops the heads result statement when it receives the 2nd shuttle message from first client
+        	
         2. t=2 => 2(t) + 1 => 5 replicas
         3. 4 clients
         4. 4 workloads: Each workload contains 20 operations
-        5. test_dict contain the expected output 
         
         
         Output logs: 
@@ -118,8 +118,9 @@ Tests:
 	t = 2
 	num_client = 4 
 	client_timeout = 3000
-	head_timeout = 3000
-	nonhead_timeout = 3000
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	checkpoint_limit = 7
 	workload[0] = slice('start', '2:10'); append('start', 'cramp'); put('firer', 'amplitude'); slice('firer', '8:0'); append('start', 'jaw'); slice('firer', '4:7'); put('whirls', 'courts'); get('whirls'); slice('whirls', '9:2'); get('firer'); put('meat', 'steamers'); slice('start', '6:5'); append('firer', 'crops'); get('meat'); get('meat'); append('firer', 'commissions'); slice('whirls', '3:5'); get('whirls'); get('firer'); get('whirls')
 	
 	workload[1] = get('start'); get('start'); get('start'); append('start', 'downgrades'); put('lever', 'hillside'); get('start'); put('shaft', 'neutron'); put('stress', 'sunlight'); get('shaft'); append('shaft', 'validations'); slice('lever', '9:10'); append('shaft', 'midnight'); slice('stress', '0:0'); slice('lever', '7:8'); slice('lever', '5:1'); slice('lever', '8:9'); append('lever', 'checker'); append('lever', 'merchant'); put('skill', 'bed'); get('start')
@@ -130,9 +131,6 @@ Tests:
 	
 	
 	failures[0,3] = shuttle(0,2), drop_result_stmt()
-	failures[0,1] = result_shuttle(0,1), change_result()
-	
-	test_dict = {"length": "rdi", "lever": " checker merchant", "proficiency": " turnarounds points", "claws": " polices percentage", "blankets": " calibration finger", "march": " multiplications", "coats": " co", "matter": " kettles breezes", "shaft": " neutron validations midnight", "whirls": "ur", "meat": " steamers", "stress": " sunlight", "firer": "lit crops commissions", "beam": " holder", "watchstanding": "les character night capacitor", "capabilities": " filler sidewalk", "skill": " bed", "assembly": " abbreviations"}
 
     -----------------------------------------------------------------------------
     =================================================================================================================================
@@ -141,12 +139,13 @@ Tests:
     =================================================================================================================================
     Test_3: Test case 3 scenario: 
 
-        1. Failure-free
+        1. 2 Failures:
+        	1.1 The tail crashes when it receives the first shuttle message from the first client
+        	1.2 The head sleeps for 200seconds when it receives the 2nd forwarded request from client 0.
+
+
         2. t=3 => 2(t) + 1 => 7 replicas
-        3. 8 Clients
-        4. 8 Workloads: Each workload has 10 operations
-	5. test_dict: Contains the expected output dictionary
-	
+        3. 1 Client
 	
         Output logs: 
         		logs/test3/replica_head.log
@@ -167,9 +166,10 @@ Tests:
     -----------------------------------------------------------------------------
 	test_case_name = test3
 	t = 3
-	num_client = 8
-	head_timeout = 3000
-	nonhead_timeout = 3000
+	num_client = 1
+	client_timeout = 3000
+	head_timeout = 1000
+	nonhead_timeout = 2000
 	workload[0] = slice('start', '4:0'); slice('start', '2:5'); append('start', 'correlation'); slice('start', '3:9'); get('start'); get('start'); slice('start', '1:5'); get('start'); slice('start', '1:2'); get('start') 
 	workload[1] = append('start', 'rakes'); append('start', 'meanings'); get('start'); put('evaluations', 'nausea'); append('evaluations', 'walk'); slice('evaluations', '3:1'); slice('start', '9:5'); put	('shoe', 'moonlight'); get('evaluations'); slice('shoe', '2:0')
 	workload[2] = append('start', 'exposures'); slice('start', '3:9'); append('start', 'vol.'); append('start', 'dam'); slice('start', '3:4'); get('start'); append('start', 'pitches'); put('gyroscopes', 'point'); slice('start', '1:5'); append('start', 'petition')
@@ -179,7 +179,9 @@ Tests:
 	workload[6] = get('start'); append('start', 'taxes'); put('crowns', 'electrons'); get('crowns'); append('crowns', 'grinder'); get('start'); get('start'); append('crowns', 'burns'); append('start', 'parentheses'); put('turn', 'increment')
 	workload[7] = append('start', 'berths'); slice('start', '5:7'); get('start'); put('memorandum', 'tensions'); get('start'); slice('memorandum', '1:2'); put('implantation', 'airships'); slice('implantation', '6:3'); put('lands', 'torque'); put('windlasses', 'carload')
 	
-	test_dict = {"substance": " patch", "memorandum": "t", "relocations": " bump", "pick": " maples", "evaluations": " nausea walk", "blueprint": " guard cry", "reservists": " hazard", "punches": " handful", "lands": " torque", "blocks": " street", "windlasses": " carload", "crowns": " electrons grinder burns", "arts": " milks ending", "shoe": " moonlight", "implantation": " airships", "gyroscopes": " point", "turn": " increment"}
+	failures[0,6] = shuttle(0,1), crash()
+	failures[0,0] = forwarded_request(0,2), sleep(200000)
+
 
     -----------------------------------------------------------------------------
     =================================================================================================================================
@@ -188,11 +190,11 @@ Tests:
     =================================================================================================================================
     Test_4: Test case 4 scenario: 
 
-        1. Failure free
-        2. t=2 => 2(t) + 1 => 5 replicas
-        3. 3 Clients
-        4. 3 pseudorandom workloads with 10 random operations each
-        5. test dict is empty because we cannot predict the output of the dictionary
+        1. 1 Failure
+        	1.1 The 4th replica drops the first completed checkpoint message
+        2. t=3 => 3(t) + 1 => 7 replicas
+        3. 1 Client
+        4. 1 workload
         
         Output logs: 
         		logs/test4/replica_head.log
@@ -211,15 +213,13 @@ Tests:
     Example: 
     -----------------------------------------------------------------------------
 	test_case_name = test4
-	t = 2
-	num_client = 3
+	t = 3
+	num_client = 1
 	client_timeout = 3000
-	head_timeout = 3000
-	nonhead_timeout = 3000
-	workload[0] = pseudorandom(233,10)
-	workload[1] = pseudorandom(212,10)
-	workload[2] = pseudorandom(256,10)
-	test_dict = {}
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	workload[0] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot'); put('justice league','superman'); append('justice league','& wonder woman'); append('justice league',' & Batman')
+	failures[0,3] = completed_checkpoint(1), drop()
  
 
     -----------------------------------------------------------------------------
@@ -228,14 +228,13 @@ Tests:
 
     =================================================================================================================================
     Test_5: Test case 5 scenario: 
-    	1. 3 failures:
-    		1.1 The head changes the operation(change_operation()) when it receives result_shuttle for 0th Client and Request 1
-    		1.2 The tail replica drops the head result_statement from the result proof of the result shuttle when it receives a shuttle message for Client 2 and request 3
-    		1.3 The 3rd replica changes the result(change_result()) when it receives a shuttle message for Client 0 and request 3
+    	1. 2 failures:
+    		1.1 3rd replica crashes when it receives the 3rd shuttle message from first client
+    		1.2 On the next configuration, the 4th replica, performs an extra operation
     		
     	2. t=3 => 2(t) + 1 = 7 replicas
-    	3. 5 clients
-    	4. 5 pseudorandom workloads which generate 5 operation requests
+    	3. 1 clients
+    	4. 1 workload 
     	
     	Output logs: 
         		logs/test5/replica_head.log
@@ -249,27 +248,20 @@ Tests:
         	python3 -m da --message-buffer-size 10240000 -n OlympusNode olympus.da
         	python3 -m da --message-buffer-size 10240000 -n ClientNode client.da
     	
-       	Verification: Will fail, we cannot predict the output of the dictionary
 
     Example: 
     -----------------------------------------------------------------------------
     test_case_name = test5
 
 	t = 3
-	num_client = 5
-	client_timeout = 3000
-	head_timeout = 3000
-	nonhead_timeout = 3000
-	workload[0] = pseudorandom(233,5)
-	workload[1] = pseudorandom(212,5)
-	workload[2] = pseudorandom(256,5)
-	workload[3] = pseudorandom(233,5)
-	workload[4] = pseudorandom(212,5)
+	num_client = 1
+	client_timeout = 4000
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	workload[0] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot'); put('justice league','superman'); append('justice league','& wonder woman'); append('justice league','& Batman & Flash'); put('Marvel','Avengers')
 
-	failures[0,0] = result_shuttle(0,1), change_operation()
-	failures[0,6] = shuttle(2,3), drop_result_stmt()
-	failures[0,2] = shuttle(0,3), change_result()
-	test_dict = {}
+	failures[0,2] = shuttle(0,3), crash()
+	failures[1,3] = new_configuration(0), extra_op()
 
 
     -----------------------------------------------------------------------------
@@ -279,11 +271,13 @@ Tests:
     =================================================================================================================================
     Test_6: Test case 6 scenario: 
 
-        1. Failure:
-        	1.1 Tail replica changes the result when it receives the shuttle message for 6th Client RequestID 3
-        2. t=1 => 2(t) + 1 = 3 replicas
-        3. 10 Clients
-        4. 10 pseudorandom workload which generate 5 random dictionary operations
+        1. 2 Failures:
+        	1.1 4th replica of the first config, changes the result when it receives the result shuttle
+        	1.2 In the next configuration, the head replica increments the slot number.
+
+        2. t=3 => 2(t) + 1 = 7 replicas
+        3. 1 Clients
+        4. 1 workload
         
         Output logs: 
         		logs/test6/replica_head.log
@@ -301,35 +295,30 @@ Tests:
     Example: 
     -----------------------------------------------------------------------------
 	test_case_name = test6
-	t = 1
-	num_client = 10
-	client_timeout = 3000
-	head_timeout = 3000
-	nonhead_timeout = 3000
-	workload[0] = pseudorandom(233,5)
-	workload[1] = pseudorandom(212,5)
-	workload[2] = pseudorandom(256,5)
-	workload[3] = pseudorandom(233,5)
-	workload[4] = pseudorandom(212,5)
-	workload[5] = pseudorandom(233,5)
-	workload[6] = pseudorandom(212,5)
-	workload[7] = pseudorandom(356,5)
-	workload[8] = pseudorandom(456,5)
-	workload[9] = pseudorandom(556,5)
-	failures[0,2] = shuttle(6,3), change_result()
-	test_dict = {}
+	t = 3
+	num_client = 1
+	client_timeout = 2000
+	head_timeout = 500
+	nonhead_timeout = 1000
+	workload[0] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot'); put('justice league','superman'); append('justice league','| wonder woman'); append('justice league','| Batman | Flash'); put('Marvel', 'bad movies'); append('actress',': Married'); put('superman', 'Henry Cavill')
+	failures[0,3] = result_shuttle(0,1), change_result()
+	failures[1,0] = new_configuration(0), increment_slot()
+
 
     -----------------------------------------------------------------------------
     =================================================================================================================================
 
 
     =================================================================================================================================
-    Test_StressTest: Stresstest scenario: 
+    Test_7: Test case 7 scenario: 
 
-        1. Failure-Free
-        2. t=1 => 2(t) + 1 = 3 replicas
-        3. 10 Clients
-        4. 10 pseudorandom workload which generate 100 random dictionary operations
+        1. 2 Failures
+        	1.1  The 4th replica in the 0th config sleeps for 20s when it receives the 4th shuttle message
+        	1.2 The 3rd replica truncates 2 entries from its history when it receives the wedge request
+
+        2. t=3 => 2(t) + 1 = 7 replicas
+        3. 1 Client
+        4. 1 Workload
         
         Output logs: 
         		logs/stresstest/replica_head.log
@@ -339,35 +328,169 @@ Tests:
         		logs/stresstest/olympus.log
         		
         Run: 
-        	python3 -m da --message-buffer-size 10240000 -n MainNode main.da --test_case_name=stresstest
+        	python3 -m da --message-buffer-size 10240000 -n MainNode main.da --test_case_name=test7
         	python3 -m da --message-buffer-size 10240000 -n OlympusNode olympus.da
         	python3 -m da --message-buffer-size 10240000 -n ClientNode client.da
-
-       	Verification: Will fail, we cannot predict the output of the dictionary
        	
     Example: 
     -----------------------------------------------------------------------------
-	test_case_name = stresstest
+	test_case_name = test7
 
 	t = 1
-	num_client = 10
+	num_client = 1
+	client_timeout = 3000
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	
+	# CLIENT WORKLOAD
+	workload[0] = put('movie','star'); append('movie',' wars'); put('hero', 'Ben Affleck'); get('movie'); append('hero', ': Batman'); put('actress', 'Gal'); append('actress', ' Gadot'); put('justice league','superman'); append('justice league','| wonder woman'); append('justice league','| Batman | Flash'); put('Marvel', 'bad movies'); append('actress',': Married'); put('spiderman', 'peter parker'); append('water', 'bottle')
+	
+	failures[0,3] = shuttle(0,4), sleep(20000)
+	failures[0,2] = wedge_request(0), truncate_history(2) 
+
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+
+
+
+
+
+    =================================================================================================================================
+    Test_8: Test case 8 scenario: 
+
+        1. 4 Failures
+
+        	1.1  0th config: the 4th replica drops t+1 complete checkpoint statements
+        	1.2 1st config: The 4th replica creates an invalid order signature when it receives the 2nd checkpoint
+        	1.3 2nd config: The 3rd replica creates an invalid result signature when it receives the 2nd result_shuttle
+        	1.4 2nd config: The head replica crashes when it receives the catch_up request 	
+
+        2. t=3 => 2(t) + 1 = 7 replicas
+        3. 1 Client
+        4. 1 Workload (pseudorandom workload)
+        
+        Output logs: 
+        		logs/stresstest/replica_head.log
+        		logs/stresstest/replica_tail.log,
+        		logs/stresstest/replica_*.log
+        		logs/stresstest/client_*.log,
+        		logs/stresstest/olympus.log
+        		
+        Run: 
+        	python3 -m da --message-buffer-size 10240000 -n MainNode main.da --test_case_name=test8
+        	python3 -m da --message-buffer-size 10240000 -n OlympusNode olympus.da
+        	python3 -m da --message-buffer-size 10240000 -n ClientNode client.da
+        	
+       Verfication: It cannot be possible because the workload is random
+       	
+    Example: 
+    -----------------------------------------------------------------------------
+	test_case_name = test8
+
+	t = 3
+	num_client = 1
+	client_timeout = 3000
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	
+	# CLIENT WORKLOAD
+	workload[0] = pseudorandom(190,50)
+	
+	failures[0,3] = shuttle(0,5), drop_checkpt_stmts() 
+	failures[1,3] = checkpoint(2), invalid_order_sig()
+	failures[2,2] = result_shuttle(0,2), invalid_result_sig()
+	failures[2,0] = catch_up(0), crash()
+
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+    
+    =================================================================================================================================
+    Test_9: Test case 9 scenario: 
+
+        1. 5 Failures
+        	1.1 0th config: the 5th replica drops the 90th shuttle message.
+        	1.2 0th config: the 5th replica sleeps for 700ms when it receives a get_running_state message
+        	1.3 0th config: The 3rd replica sleeps for 200ms when it receives a get_running_state message
+        	1.4 0th config: The head replica sleeps for 300ms when it receives a get_running_state message
+        	1.5 0th config: The 4th replica sleeps for 400ms when it receives a get_running_state message
+
+        2. t=2 => 2(t) + 1 = 5 replicas
+        3. 1 Client
+        4. 1 Workload (pseudorandom workload)
+        
+        Output logs: 
+        		logs/stresstest/replica_head.log
+        		logs/stresstest/replica_tail.log,
+        		logs/stresstest/replica_*.log
+        		logs/stresstest/client_*.log,
+        		logs/stresstest/olympus.log
+        		
+        Run: 
+        	python3 -m da --message-buffer-size 10240000 -n MainNode main.da --test_case_name=test9
+        	python3 -m da --message-buffer-size 10240000 -n OlympusNode olympus.da
+        	python3 -m da --message-buffer-size 10240000 -n ClientNode client.da
+        	
+       Verfication: It cannot be possible because the workload is random
+       	
+    Example: 
+    -----------------------------------------------------------------------------
+	test_case_name = test9
+
+	t = 2
+	num_client = 1
+	client_timeout = 3000
+	head_timeout = 1000
+	nonhead_timeout = 2000
+	
+	# CLIENT WORKLOAD
+	workload[0] = pseudorandom(190,100)
+	
+	failures[0,4] = shuttle(0,90), drop(); get_running_state(0), sleep(700)
+	failures[0,2] = get_running_state(0), sleep(200)
+	failures[0,0] = get_running_state(0), sleep(300)
+	failures[0,3] = get_running_state(0), sleep(400)
+
+    -----------------------------------------------------------------------------
+    =================================================================================================================================
+    
+    =================================================================================================================================
+    Test_Perform900: Test case Perform900 scenario: 
+
+        1. Failure Free
+        2. t=2 => 2(t) + 1 = 5 replicas
+        3. 3 Client
+        4. 3 Workload (pseudorandom workload) of size 300 each
+        
+        Output logs: 
+        		logs/stresstest/replica_head.log
+        		logs/stresstest/replica_tail.log,
+        		logs/stresstest/replica_*.log
+        		logs/stresstest/client_*.log,
+        		logs/stresstest/olympus.log
+        		
+        Run: 
+        	python3 -m da --message-buffer-size 10240000 -n MainNode main.da --test_case_name=perform900
+        	python3 -m da --message-buffer-size 10240000 -n OlympusNode olympus.da
+        	python3 -m da --message-buffer-size 10240000 -n ClientNode client.da
+        	
+       Verfication: It cannot be possible because the workload is random
+       	
+    Example: 
+    -----------------------------------------------------------------------------
+	test_case_name = perform900
+
+	t = 2
+	num_client = 3
 	client_timeout = 3000
 	head_timeout = 3000
 	nonhead_timeout = 3000
 	
 	# CLIENT WORKLOAD
-	workload[0] = pseudorandom(203,100) 
-	workload[1] = pseudorandom(213,100)
-	workload[2] = pseudorandom(223,100)
-	workload[3] = pseudorandom(233,100)
-	workload[4] = pseudorandom(243,100)
-	workload[5] = pseudorandom(253,100) 
-	workload[6] = pseudorandom(263,100)
-	workload[7] = pseudorandom(273,100)
-	workload[8] = pseudorandom(283,100)
-	workload[9] = pseudorandom(293,100)
-	test_dict = {}
+	workload[0] = pseudorandom(190,300)
+	workload[1] = pseudorandom(191,300)
+	workload[2] = pseudorandom(192,300)
+	
 
     -----------------------------------------------------------------------------
     =================================================================================================================================
-
+    
