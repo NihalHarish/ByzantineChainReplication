@@ -112,7 +112,7 @@ if __name__ == '__main__':
         test_case = options.test_case
     simulated_dict = dict_simulator(test_case)
 
-    print(simulated_dict)
+    # print(simulated_dict)
 
     # test_value = json.loads(config_handler.load_config()[test_case]['test_dict'])
     test_value = simulated_dict

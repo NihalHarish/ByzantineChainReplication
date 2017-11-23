@@ -74,8 +74,9 @@ workload[3] = slice('start', '3:6'); put('watchstanding', 'rules'); slice('watch
 # failure scenario are failure-free.
 # 0th config and 0th replica, the second client sends a message with request number 1, and head decides to crash
 
-failures[0,3] = shuttle(0,2), drop_result_stmt()
 
+failures[0,0] = client_request(0,2), sleep(10000)
+failures[0,3] = shuttle(0,2), drop_result_stmt()
 
 
 #####################################################################################################################################################
